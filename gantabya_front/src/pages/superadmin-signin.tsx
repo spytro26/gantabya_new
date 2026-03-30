@@ -1,0 +1,138 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { FaShieldAlt, FaUser, FaLock } from "react-icons/fa";
+import { API_BASE_URL } from "../config";
+
+export default function SuperAdminSignin() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/superadmin/signin`,
+        { username, password },
+        { withCredentials: true }
+      );
+
+      // DEBUG: Log response
+      console.log("🔐 SuperAdmin Signin Response:", {
+        hasToken: !!response.data.token,
+        tokenPreview: response.data.token ? `${response.data.token.substring(0, 30)}...` : "NO TOKEN IN RESPONSE",
+        responseData: response.data,
+      });
+
+      // Store token in localStorage for iOS/mobile compatibility
+      if (response.data.token) {
+        localStorage.setItem('superAdminToken', response.data.token);
+        console.log("✅ Token stored in localStorage");
+        console.log("📦 Verify storage:", localStorage.getItem('superAdminToken') ? "SUCCESS" : "FAILED");
+      } else {
+        console.log("❌ No token in response to store!");
+      }
+
+      if (response.status === 200) {
+        navigate("/superadmin/dashboard");
+      }
+    } catch (err: any) {
+      console.error("❌ Signin error:", err);
+      setError(err.response?.data?.errorMessage || "Invalid credentials");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center px-4 py-8">
+      <div className="max-w-md w-full space-y-6">
+        <div className="flex justify-center sm:justify-end">
+          <div className="bg-red-600 p-3 rounded-full shadow-lg">
+            <FaShieldAlt className="text-white text-2xl" />
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-2xl shadow-2xl p-6 sm:p-8 border border-gray-700">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-white mb-2">Super Admin</h1>
+            <p className="text-gray-400">Sign in to access super admin panel</p>
+          </div>
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-900/50 border border-red-500 rounded-lg">
+              <p className="text-red-200 text-sm text-center">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Username
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaUser className="text-gray-500" />
+                </div>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter username"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaLock className="text-gray-500" />
+                </div>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter password"
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold py-3 px-4 rounded-lg hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Signing in...
+                </div>
+              ) : (
+                "Sign In"
+              )}
+            </button>
+          </form>
+        </div>
+
+        <div className="text-center">
+          <p className="text-gray-600 text-sm">
+            Highest level of access • Full system control
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
