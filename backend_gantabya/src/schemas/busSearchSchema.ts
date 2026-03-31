@@ -90,3 +90,8 @@ export const busInfoQuerySchema = z.object({
   fromStopId: z.string().uuid("Invalid from stop ID"),
   toStopId: z.string().uuid("Invalid to stop ID"),
 });
+
+// Admin offline booking schema (same as bookTicketSchema but for COD payments)
+export const adminOfflineBookingSchema = bookTicketSchema.extend({
+  adminNotes: z.string().optional(), // Optional notes about the offline booking
+});

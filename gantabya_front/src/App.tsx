@@ -19,6 +19,8 @@ import AdminVerifyEmail from './pages/admin-verify-email';
 import AdminVerificationPending from './pages/admin-verification-pending';
 import AdminForgotPassword from './pages/admin-forgot-password';
 import AdminBookingsReport from './pages/admin-bookings-report';
+import AdminOfflineBooking from './pages/admin-offline-booking';
+// AdminOfflineBookingSeats and AdminOfflineBookingPassengers removed as we reuse Bookings UI
 import { UserHome } from './pages/user-home';
 import { SearchResults } from './pages/search-results';
 import { BookingPage } from './pages/booking-page';
@@ -74,6 +76,10 @@ function App() {
         <Route path="/admin/offers" element={<OfferManagement />} />
         <Route path="/admin/amenities" element={<AmenityManagement />} />
         <Route path="/admin/bookings-report" element={<AdminBookingsReport />} />
+        <Route path="/admin/offline-booking" element={<AdminOfflineBooking />} />
+        <Route path="/admin/offline-booking/:tripId" element={<BookingPage isAdmin={true} />} />
+        <Route path="/admin/offline-booking/:tripId/boarding" element={<BookingBoardingPage isAdmin={true} />} />
+        <Route path="/admin/offline-booking/:tripId/passengers" element={<BookingPassengerPage isAdmin={true} />} />
 
         {/* Super Admin Routes */}
         <Route path="/superadmin" element={<SuperAdminSignin />} />

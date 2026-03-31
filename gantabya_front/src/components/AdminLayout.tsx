@@ -12,6 +12,7 @@ import {
   FaTimes,
   FaShieldAlt,
   FaClipboardList,
+  FaTicketAlt,
 } from 'react-icons/fa';
 import buslogo from '../assets/buslogo.jpg';
 import { APP_NAME, API_ENDPOINTS } from '../config';
@@ -86,6 +87,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       icon: <FaChartLine />,
     },
     {
+      name: 'Offline Booking',
+      path: '/admin/offline-booking',
+      icon: <FaTicketAlt />,
+    },
+    {
       name: 'Bus Management',
       path: '/admin/buses',
       icon: <FaBus />,
@@ -150,7 +156,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 </div>
               </div>
               <div>
-                <h1 className="text-xl font-bold">{APP_NAME}</h1>
+                <h1 className="text-xl font-bold">GoGantabya Plus</h1>
                 <p className="text-xs text-gray-400">{serviceName}</p>
               </div>
             </div>

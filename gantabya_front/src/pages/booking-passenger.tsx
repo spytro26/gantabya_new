@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
 import { UserNavbar } from '../components/UserNavbar';
+import AdminLayout from '../components/AdminLayout';
 import { roundToTwo, formatAmount, convertToINR, formatDualCurrency } from '../utils/currency';
 import {
   FaArrowLeft,
@@ -34,7 +35,7 @@ type PassengerForm = {
   gender: 'MALE' | 'FEMALE' | 'OTHER';
 };
 
-export function BookingPassengerPage() {
+export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean }) {
   const { tripId } = useParams<{ tripId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -66,7 +67,7 @@ export function BookingPassengerPage() {
       !boardingPointId ||
       !droppingPointId
     ) {
-      navigate(`/book/${tripId ?? ''}`, { replace: true });
+      navigate(isAdmin ? `/admin/offline-booking/${tripId ?? ''}` : `/book/${tripId ?? ''}`, { replace: true });
       return;
     }
 
@@ -83,6 +84,7 @@ export function BookingPassengerPage() {
   }, []);
 
   const fetchUnreadCount = async () => {
+    if (isAdmin) return;
     try {
       const response = await api.get(API_ENDPOINTS.UNREAD_COUNT);
       setUnreadCount(response.data.unreadCount);
@@ -246,6 +248,22 @@ export function BookingPassengerPage() {
         holdId: state.holdId, // Include seat hold ID for verification
       };
 
+      if (isAdmin) {
+        await api.post(API_ENDPOINTS.ADMIN_OFFLINE_BOOKING, {
+          tripId,
+          fromStopId,
+          toStopId,
+          seatIds: selectedSeats,
+          passengers: passengersArray,
+          boardingPointId,
+          droppingPointId,
+          adminNotes: 'Booked via admin offline booking'
+        });
+        alert('Offline booking confirmed successfully!');
+        navigate('/admin/offline-booking');
+        return;
+      }
+
       const initiateResponse = await api.post(API_ENDPOINTS.PAYMENTS_INITIATE, {
         ...bookingPayload,
         paymentMethod,
@@ -352,9 +370,9 @@ export function BookingPassengerPage() {
   };
 
   if (loading) {
-    return (
+    const loadingContent = (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        <UserNavbar unreadCount={unreadCount} currentPage="booking" />
+        {!isAdmin && <UserNavbar unreadCount={unreadCount} currentPage="booking" />}
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
             <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
@@ -363,18 +381,19 @@ export function BookingPassengerPage() {
         </div>
       </div>
     );
+    return isAdmin ? <AdminLayout>{loadingContent}</AdminLayout> : loadingContent;
   }
 
   if (error || !busInfo) {
-    return (
+    const errorContent = (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        <UserNavbar unreadCount={unreadCount} currentPage="booking" />
+        {!isAdmin && <UserNavbar unreadCount={unreadCount} currentPage="booking" />}
         <div className="flex flex-1 items-center justify-center px-4">
           <div className="max-w-md rounded-2xl bg-white p-6 text-center shadow-xl">
             <h2 className="text-lg font-semibold text-gray-900">Something went wrong</h2>
             <p className="mt-2 text-sm text-gray-600">{error || 'Unable to load passenger details.'}</p>
             <button
-              onClick={() => navigate(`/book/${tripId}`)}
+              onClick={() => navigate(isAdmin ? `/admin/offline-booking/${tripId}` : `/book/${tripId}`)}
               className="mt-4 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700"
             >
               <FaArrowLeft />
@@ -384,13 +403,14 @@ export function BookingPassengerPage() {
         </div>
       </div>
     );
+    return isAdmin ? <AdminLayout>{errorContent}</AdminLayout> : errorContent;
   }
 
   const boardingPoint = busInfo.route.boardingPoints.find((point) => point.id === boardingPointId);
   const droppingPoint = busInfo.route.droppingPoints.find((point) => point.id === droppingPointId);
 
   const handleBackToBoarding = () => {
-    navigate(`/book/${tripId}/boarding`, {
+    navigate(isAdmin ? `/admin/offline-booking/${tripId}/boarding` : `/book/${tripId}/boarding`, {
       state: {
         selectedSeats,
         fromStopId,
@@ -402,9 +422,9 @@ export function BookingPassengerPage() {
     });
   };
 
-  return (
+  const mainContent = (
     <div className="min-h-screen bg-gray-50">
-      <UserNavbar unreadCount={unreadCount} currentPage="booking" />
+      {!isAdmin && <UserNavbar unreadCount={unreadCount} currentPage="booking" />}
 
       <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:py-10">
         <div className="mb-6 flex items-center justify-between">
@@ -577,31 +597,33 @@ export function BookingPassengerPage() {
 
         <div className="mt-6 rounded-3xl bg-white p-5 shadow-xl">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="sm:w-2/3">
-              <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Have a coupon?
-              </label>
-              <div className="mt-2 flex gap-2">
-                <input
-                  type="text"
-                  value={couponCode}
-                  onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
-                  placeholder="Enter coupon code"
-                  className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                />
-                <button
-                  onClick={handleApplyCoupon}
-                  className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-100"
-                >
-                  Apply
-                </button>
-              </div>
-              {appliedCoupon && (
-                <div className="mt-2 text-xs text-green-600">
-                  Coupon {appliedCoupon.code} applied! You saved {formatDualCurrency(discountAmount)}.
+            {isAdmin ? null : (
+              <div className="sm:w-2/3">
+                <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Have a coupon?
+                </label>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                    placeholder="Enter coupon code"
+                    className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  />
+                  <button
+                    onClick={handleApplyCoupon}
+                    className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-100"
+                  >
+                    Apply
+                  </button>
                 </div>
-              )}
-            </div>
+                {appliedCoupon && (
+                  <div className="mt-2 text-xs text-green-600">
+                    Coupon {appliedCoupon.code} applied! You saved {formatDualCurrency(discountAmount)}.
+                  </div>
+                )}
+              </div>
+            )}
             <div className="sm:text-right">
               <div className="text-xs uppercase tracking-wide text-gray-400">Total amount</div>
               <div className="text-2xl font-bold text-indigo-600">{formatDualCurrency(totalAmount)}</div>
@@ -611,41 +633,48 @@ export function BookingPassengerPage() {
             </div>
           </div>
           <div className="mt-5 space-y-4">
-            <div>
-              <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                Select payment method
-              </span>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('RAZORPAY')}
-                  className={`flex-1 flex items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-sm font-medium transition-colors ${
-                    paymentMethod === 'RAZORPAY'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-gray-200 hover:border-indigo-300 text-gray-700'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <FaCreditCard /> Razorpay
-                  </span>
-                  <span className="text-[11px] text-gray-500">Pay ₹{formatAmount(convertToINR(totalAmount))}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('ESEWA')}
-                  className={`flex-1 flex items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-sm font-medium transition-colors ${
-                    paymentMethod === 'ESEWA'
-                      ? 'border-green-500 bg-green-50 text-green-700'
-                      : 'border-gray-200 hover:border-green-300 text-gray-700'
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <FaMobileAlt /> eSewa
-                  </span>
-                  <span className="text-[11px] text-gray-500">Pay NPR {formatAmount(totalAmount)}</span>
-                </button>
+            {!isAdmin ? (
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                  Select payment method
+                </span>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('RAZORPAY')}
+                    className={`flex-1 flex items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-sm font-medium transition-colors ${
+                      paymentMethod === 'RAZORPAY'
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                        : 'border-gray-200 hover:border-indigo-300 text-gray-700'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <FaCreditCard /> Razorpay
+                    </span>
+                    <span className="text-[11px] text-gray-500">Pay ₹{formatAmount(convertToINR(totalAmount))}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('ESEWA')}
+                    className={`flex-1 flex items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-sm font-medium transition-colors ${
+                      paymentMethod === 'ESEWA'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-200 hover:border-green-300 text-gray-700'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <FaMobileAlt /> eSewa
+                    </span>
+                    <span className="text-[11px] text-gray-500">Pay NPR {formatAmount(totalAmount)}</span>
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-sm font-semibold text-gray-700 bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+                Payment Method: Cash on Delivery (COD) <br/>
+                <span className="text-xs font-normal text-gray-500">Bookings placed through admin are directly registered and bypass the payment gateway.</span>
+              </div>
+            )}
 
             {paymentError && (
               <p className="text-xs text-red-600">{paymentError}</p>
@@ -672,4 +701,6 @@ export function BookingPassengerPage() {
       </div>
     </div>
   );
+
+  return isAdmin ? <AdminLayout>{mainContent}</AdminLayout> : mainContent;
 }

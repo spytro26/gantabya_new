@@ -53,6 +53,9 @@ export const API_ENDPOINTS = {
 
   // Admin Bookings Report
   ADMIN_BOOKINGS_DATE_REPORT: "/admin/bookings/date-report",
+  
+  // Admin Offline Booking
+  ADMIN_OFFLINE_BOOKING: "/admin/booking/offline",
 
   // Admin Offers
   ADMIN_CREATE_OFFER: "/admin/offers",

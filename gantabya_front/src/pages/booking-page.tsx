@@ -7,6 +7,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
 import { UserNavbar } from '../components/UserNavbar';
+import AdminLayout from '../components/AdminLayout';
 import { BusImageCarousel } from '../components/BusImageCarousel';
 import { SeatHoldTimer } from '../components/SeatHoldTimer';
 import { useSeatHold } from '../hooks/useSeatHold';
@@ -27,7 +28,7 @@ import { loadRazorpayScript, submitEsewaForm } from '../utils/payment';
 
 type PaymentGateway = 'RAZORPAY' | 'ESEWA';
 
-export function BookingPage() {
+export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
   const { tripId } = useParams<{ tripId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -83,7 +84,7 @@ export function BookingPage() {
     isCritical,
     formatTime,
     holdSeats,
-    releaseSeats,
+    // releaseSeats, // Not used currently but available if needed
   } = useSeatHold({
     tripId: tripId || '',
     fromStopIndex: busInfo?.route.fromStop.stopIndex ?? 0,
@@ -98,7 +99,7 @@ export function BookingPage() {
 
   useEffect(() => {
     if (!tripId) {
-      navigate('/home');
+      navigate(isAdmin ? '/admin/offline-booking' : '/home');
       return;
     }
     fetchUnreadCount();
@@ -144,6 +145,7 @@ export function BookingPage() {
 
 
   const fetchUnreadCount = async () => {
+    if (isAdmin) return;
     try {
       const response = await api.get(API_ENDPOINTS.UNREAD_COUNT);
       setUnreadCount(response.data.unreadCount);
@@ -328,6 +330,24 @@ export function BookingPage() {
         age: passengers[seatId].age,
         gender: passengers[seatId].gender,
       }));
+
+      // Admin COD booking - use admin offline booking endpoint
+      if (isAdmin) {
+        await api.post(API_ENDPOINTS.ADMIN_OFFLINE_BOOKING, {
+          tripId,
+          fromStopId: fromStopId || busInfo?.route.fromStop.id,
+          toStopId: toStopId || busInfo?.route.toStop.id,
+          seatIds: selectedSeats,
+          passengers: passengersArray,
+          boardingPointId: selectedBoardingPointId,
+          droppingPointId: selectedDroppingPointId,
+          adminNotes: 'Booked via admin offline booking'
+        });
+
+        alert('Booking confirmed successfully!');
+        navigate('/admin/offline-booking');
+        return;
+      }
 
       const bookingPayload = {
         tripId,
@@ -592,7 +612,8 @@ export function BookingPage() {
       return;
     }
 
-    navigate(`/book/${tripId}/boarding`, {
+    const nextPath = isAdmin ? `/admin/offline-booking/${tripId}/boarding` : `/book/${tripId}/boarding`;
+    navigate(nextPath, {
       state: {
         selectedSeats,
         fromStopId: effectiveFromStopId,
@@ -600,7 +621,7 @@ export function BookingPage() {
         searchParams: routeState?.searchParams || null,
         boardingPointId: routeState?.boardingPointId || selectedBoardingPointId || '',
         droppingPointId: routeState?.droppingPointId || selectedDroppingPointId || '',
-        holdId: result.holdId, // Pass the hold ID for verification during payment
+        holdId: result.holdId,
       },
     });
   };
@@ -915,7 +936,7 @@ export function BookingPage() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-8 max-w-md">
           <p className="text-red-700 text-lg mb-4">{error || 'Bus information not available'}</p>
           <button
-            onClick={() => navigate('/home')}
+            onClick={() => navigate(isAdmin ? '/admin/offline-booking' : '/home')}
             className="text-indigo-600 hover:text-indigo-700 font-medium"
           >
             ← Go back to search
@@ -925,12 +946,12 @@ export function BookingPage() {
     );
   }
 
-  return (
+  const mainContent = (
     <div className="min-h-screen bg-gray-50">
       {/* Header/Navbar */}
-      <UserNavbar unreadCount={unreadCount} currentPage="booking" />
+      {!isAdmin && <UserNavbar unreadCount={unreadCount} currentPage="booking" />}
 
-  {/* Trip Info Bar */}
+      {/* Trip Info Bar */}
   <div className="hidden md:block bg-indigo-600 text-white py-3 sm:py-4">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
           <button
@@ -1398,60 +1419,69 @@ export function BookingPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <div>
-                    <span className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                      Select Payment Method
-                    </span>
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('RAZORPAY')}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-colors ${
-                          paymentMethod === 'RAZORPAY'
-                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                            : 'border-gray-200 hover:border-indigo-300 text-gray-700'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2 text-sm sm:text-base font-medium">
-                          <FaCreditCard className="hidden sm:block" /> Razorpay
-                        </span>
-                        <span className="text-xs text-gray-500">Pay ₹{formatAmount(convertToINR(totalAmountValue))}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('ESEWA')}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-colors ${
-                          paymentMethod === 'ESEWA'
-                            ? 'border-green-500 bg-green-50 text-green-700'
-                            : 'border-gray-200 hover:border-green-300 text-gray-700'
-                        }`}
-                      >
-                        <span className="flex items-center gap-2 text-sm sm:text-base font-medium">
-                          <FaMobileAlt className="hidden sm:block" /> eSewa
-                        </span>
-                        <span className="text-xs text-gray-500">Pay NPR {formatAmount(totalAmountValue)}</span>
-                      </button>
+                  {!isAdmin ? (
+                    <div>
+                      <span className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
+                        Select Payment Method
+                      </span>
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('RAZORPAY')}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-colors ${
+                            paymentMethod === 'RAZORPAY'
+                              ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                              : 'border-gray-200 hover:border-indigo-300 text-gray-700'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2 text-sm sm:text-base font-medium">
+                            <FaCreditCard className="hidden sm:block" /> Razorpay
+                          </span>
+                          <span className="text-xs text-gray-500">Pay ₹{formatAmount(convertToINR(totalAmountValue))}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('ESEWA')}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-colors ${
+                            paymentMethod === 'ESEWA'
+                              ? 'border-green-500 bg-green-50 text-green-700'
+                              : 'border-gray-200 hover:border-green-300 text-gray-700'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2 text-sm sm:text-base font-medium">
+                            <FaMobileAlt className="hidden sm:block" /> eSewa
+                          </span>
+                          <span className="text-xs text-gray-500">Pay NPR {formatAmount(totalAmountValue)}</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="text-sm font-semibold text-gray-700 bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+                      Payment Method: Cash on Delivery (COD) <br/>
+                      <span className="text-xs font-normal text-gray-500">Bookings placed through admin are directly registered and bypass the payment gateway.</span>
+                    </div>
+                  )}
 
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Have a coupon?</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                        placeholder="Enter code"
-                        className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      />
-                      <button
-                        onClick={handleApplyCoupon}
-                        className="px-3 sm:px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
-                      >
-                        Apply
-                      </button>
+                  {!isAdmin && (
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Have a coupon?</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                          placeholder="Enter code"
+                          className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        />
+                        <button
+                          onClick={handleApplyCoupon}
+                          className="px-3 sm:px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                        >
+                          Apply
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Seat Hold Timer for Desktop */}
                   {holdId && countdown > 0 && (
@@ -1759,4 +1789,6 @@ export function BookingPage() {
       )}
     </div>
   );
+
+  return isAdmin ? <AdminLayout>{mainContent}</AdminLayout> : mainContent;
 }

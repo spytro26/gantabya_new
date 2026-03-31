@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
 import { UserNavbar } from '../components/UserNavbar';
+import AdminLayout from '../components/AdminLayout';
 import { roundToTwo, formatAmount } from '../utils/currency';
 import {
   FaArrowLeft,
@@ -22,7 +23,7 @@ type BoardingPageState = {
   holdId?: string; // Seat hold ID for race condition prevention
 };
 
-export function BookingBoardingPage() {
+export function BookingBoardingPage({ isAdmin = false }: { isAdmin?: boolean }) {
   const { tripId } = useParams<{ tripId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,7 +46,7 @@ export function BookingBoardingPage() {
 
   useEffect(() => {
     if (!tripId || !selectedSeats.length || !fromStopId || !toStopId) {
-      navigate(`/book/${tripId ?? ''}`, { replace: true });
+      navigate(isAdmin ? `/admin/offline-booking/${tripId ?? ''}` : `/book/${tripId ?? ''}`, { replace: true });
       return;
     }
 
@@ -54,6 +55,7 @@ export function BookingBoardingPage() {
   }, [tripId, selectedSeats.length, fromStopId, toStopId]);
 
   const fetchUnreadCount = async () => {
+    if (isAdmin) return;
     try {
       const response = await api.get(API_ENDPOINTS.UNREAD_COUNT);
       setUnreadCount(response.data.unreadCount);
@@ -152,7 +154,8 @@ export function BookingBoardingPage() {
       return;
     }
 
-    navigate(`/book/${tripId}/passengers`, {
+    const nextPath = isAdmin ? `/admin/offline-booking/${tripId}/passengers` : `/book/${tripId}/passengers`;
+    navigate(nextPath, {
       state: {
         selectedSeats,
         fromStopId,
@@ -160,13 +163,14 @@ export function BookingBoardingPage() {
         boardingPointId: selectedBoardingPointId,
         droppingPointId: selectedDroppingPointId,
         searchParams: state.searchParams,
-        holdId: state.holdId, // Pass the hold ID forward
+        holdId: state.holdId,
       },
     });
   };
 
   const handleBackToSeats = () => {
-    navigate(`/book/${tripId}`, {
+    const prevPath = isAdmin ? `/admin/offline-booking/${tripId}` : `/book/${tripId}`;
+    navigate(prevPath, {
       state: {
         selectedSeats,
         fromStopId,
@@ -174,15 +178,15 @@ export function BookingBoardingPage() {
         searchParams: state.searchParams,
         boardingPointId: selectedBoardingPointId,
         droppingPointId: selectedDroppingPointId,
-        holdId: state.holdId, // Preserve the hold ID when going back
+        holdId: state.holdId,
       },
     });
   };
 
   if (loading) {
-    return (
+    const content = (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        <UserNavbar unreadCount={unreadCount} currentPage="booking" />
+        {!isAdmin && <UserNavbar unreadCount={unreadCount} currentPage="booking" />}
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
             <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
@@ -191,18 +195,19 @@ export function BookingBoardingPage() {
         </div>
       </div>
     );
+    return isAdmin ? <AdminLayout>{content}</AdminLayout> : content;
   }
 
   if (error || !busInfo) {
-    return (
+    const errorContent = (
       <div className="min-h-screen bg-gray-50 flex flex-col">
-        <UserNavbar unreadCount={unreadCount} currentPage="booking" />
+        {!isAdmin && <UserNavbar unreadCount={unreadCount} currentPage="booking" />}
         <div className="flex flex-1 items-center justify-center px-4">
           <div className="max-w-md rounded-2xl bg-white p-6 text-center shadow-xl">
             <h2 className="text-lg font-semibold text-gray-900">Oops!</h2>
             <p className="mt-2 text-sm text-gray-600">{error || 'Trip information unavailable.'}</p>
             <button
-              onClick={() => navigate(`/book/${tripId}`)}
+              onClick={() => navigate(isAdmin ? `/admin/offline-booking/${tripId}` : `/book/${tripId}`)}
               className="mt-4 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700"
             >
               <FaArrowLeft />
@@ -212,11 +217,12 @@ export function BookingBoardingPage() {
         </div>
       </div>
     );
+    return isAdmin ? <AdminLayout>{errorContent}</AdminLayout> : errorContent;
   }
 
-  return (
+  const mainContent = (
     <div className="min-h-screen bg-gray-50">
-      <UserNavbar unreadCount={unreadCount} currentPage="booking" />
+      {!isAdmin && <UserNavbar unreadCount={unreadCount} currentPage="booking" />}
 
       <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:py-10">
         <div className="mb-6 flex items-center justify-between">
@@ -400,4 +406,6 @@ export function BookingBoardingPage() {
       </div>
     </div>
   );
+
+  return isAdmin ? <AdminLayout>{mainContent}</AdminLayout> : mainContent;
 }
