@@ -1004,6 +1004,19 @@ adminRouter.get(
       const buses = await prisma.bus.findMany({
         where: { adminId },
         include: {
+          stops: {
+            orderBy: { stopIndex: "asc" },
+            select: {
+              id: true,
+              name: true,
+              city: true,
+              stopIndex: true,
+              departureTime: true,
+              arrivalTime: true,
+              returnDepartureTime: true,
+              returnArrivalTime: true,
+            },
+          },
           _count: {
             select: {
               seats: true,
@@ -1030,6 +1043,7 @@ adminRouter.get(
           seatCount: bus._count.seats,
           stopCount: bus._count.stops,
           tripCount: bus._count.trips,
+          stops: bus.stops,
           createdAt: bus.createdAt,
         })),
       });
@@ -1084,10 +1098,71 @@ adminRouter.post(
           .json({ errorMessage: "Not authorized to modify this bus" });
       }
 
+      // Check for existing bookings that reference stops on this bus
+      const existingStops = await prisma.stop.findMany({
+        where: { busId },
+        select: { id: true },
+      });
+      
+      const existingStopIds = existingStops.map(s => s.id);
+      
+      if (existingStopIds.length > 0) {
+        // Check if any BookingGroups reference these stops (only for non-cancelled bookings)
+        const activeBookingGroups = await prisma.bookingGroup.findFirst({
+          where: {
+            OR: [
+              { fromStopId: { in: existingStopIds } },
+              { toStopId: { in: existingStopIds } },
+            ],
+            status: { in: ['PENDING', 'CONFIRMED'] },
+          },
+        });
+        
+        if (activeBookingGroups) {
+          return res.status(400).json({ 
+            errorMessage: "Cannot modify stops while active bookings exist",
+            details: "There are pending or confirmed bookings that reference these stops. Please cancel or complete these bookings first, or wait until the related trips are completed."
+          });
+        }
+      }
+
       // Use transaction to delete old stops and create new ones
       // Increased timeout for routes with many stops and boarding points
       const result = await prisma.$transaction(
         async (tx) => {
+          // First, delete any cancelled/refunded BookingGroups that reference these stops
+          // This allows us to delete the stops safely (their payments/bookings will cascade delete)
+          if (existingStopIds.length > 0) {
+            // Delete bookings first (they have cascade from BookingGroup)
+            const cancelledGroups = await tx.bookingGroup.findMany({
+              where: {
+                OR: [
+                  { fromStopId: { in: existingStopIds } },
+                  { toStopId: { in: existingStopIds } },
+                ],
+                status: { in: ['CANCELLED', 'REFUNDED'] },
+              },
+              select: { id: true },
+            });
+            
+            const cancelledGroupIds = cancelledGroups.map(g => g.id);
+            
+            if (cancelledGroupIds.length > 0) {
+              // Delete in correct order to respect foreign keys
+              await tx.booking.deleteMany({
+                where: { groupId: { in: cancelledGroupIds } },
+              });
+              
+              await tx.payment.deleteMany({
+                where: { bookingGroupId: { in: cancelledGroupIds } },
+              });
+              
+              await tx.bookingGroup.deleteMany({
+                where: { id: { in: cancelledGroupIds } },
+              });
+            }
+          }
+          
           // Delete existing stops for this bus
           await tx.stop.deleteMany({
             where: { busId },
@@ -3793,6 +3868,101 @@ adminRouter.get(
     } catch (error) {
       console.error("Error fetching trips:", error);
       return res.status(500).json({ error: "Failed to load trips" });
+    }
+  }
+);
+
+// POST /admin/trips/ensure - Create or get a trip for a bus on a specific date
+// ============================================================================
+adminRouter.post(
+  "/trips/ensure",
+  authenticateAdmin,
+  async (req: AuthRequest, res): Promise<any> => {
+    const adminId = req.adminId;
+    const { busId, date } = req.body;
+
+    if (!adminId) {
+      return res.status(401).json({ errorMessage: "Admin not authenticated" });
+    }
+
+    if (!busId || !date) {
+      return res.status(400).json({ errorMessage: "busId and date are required" });
+    }
+
+    try {
+      // Verify bus belongs to admin
+      const bus = await prisma.bus.findFirst({
+        where: {
+          id: busId,
+          adminId: adminId,
+        },
+      });
+
+      if (!bus) {
+        return res.status(404).json({ errorMessage: "Bus not found or not authorized" });
+      }
+
+      // Parse date
+      const parts = date.split("-");
+      if (parts.length !== 3) {
+        return res.status(400).json({ errorMessage: "Invalid date format. Use YYYY-MM-DD" });
+      }
+
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      const day = parseInt(parts[2], 10);
+
+      if (isNaN(year) || isNaN(month) || isNaN(day)) {
+        return res.status(400).json({ errorMessage: "Invalid date values" });
+      }
+
+      const normalizedTripDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+
+      // Check for holiday
+      const searchDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+      const searchDateEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
+      
+      const holiday = await prisma.holiday.findFirst({
+        where: {
+          busId,
+          date: {
+            gte: searchDate,
+            lte: searchDateEnd,
+          },
+        },
+      });
+
+      if (holiday) {
+        return res.status(400).json({ 
+          errorMessage: "Bus is on holiday on this date",
+          reason: holiday.reason || "Holiday"
+        });
+      }
+
+      // Create or get trip
+      const trip = await prisma.trip.upsert({
+        where: {
+          busId_tripDate: {
+            busId,
+            tripDate: normalizedTripDate,
+          },
+        },
+        create: {
+          busId,
+          tripDate: normalizedTripDate,
+          status: "SCHEDULED",
+        },
+        update: {},
+      });
+
+      return res.status(200).json({
+        tripId: trip.id,
+        tripDate: trip.tripDate,
+        status: trip.status,
+      });
+    } catch (error) {
+      console.error("Error ensuring trip:", error);
+      return res.status(500).json({ errorMessage: "Failed to create trip" });
     }
   }
 );
