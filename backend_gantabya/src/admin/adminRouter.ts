@@ -1098,17 +1098,22 @@ adminRouter.post(
           .json({ errorMessage: "Not authorized to modify this bus" });
       }
 
-      // Check for existing bookings that reference stops on this bus
+      // Get existing stops with their indices for migration
       const existingStops = await prisma.stop.findMany({
         where: { busId },
-        select: { id: true },
+        select: { id: true, stopIndex: true },
+        orderBy: { stopIndex: 'asc' },
       });
-      
+
       const existingStopIds = existingStops.map(s => s.id);
-      
+      const oldStopIndexToId = new Map(existingStops.map(s => [s.stopIndex, s.id]));
+      const oldIdToStopIndex = new Map(existingStops.map(s => [s.id, s.stopIndex]));
+
+      // Get all active booking groups that reference these stops
+      let activeBookingGroups: { id: string; fromStopId: string; toStopId: string; boardingPointId: string | null; droppingPointId: string | null }[] = [];
+
       if (existingStopIds.length > 0) {
-        // Check if any BookingGroups reference these stops (only for non-cancelled bookings)
-        const activeBookingGroups = await prisma.bookingGroup.findFirst({
+        activeBookingGroups = await prisma.bookingGroup.findMany({
           where: {
             OR: [
               { fromStopId: { in: existingStopIds } },
@@ -1116,59 +1121,51 @@ adminRouter.post(
             ],
             status: { in: ['PENDING', 'CONFIRMED'] },
           },
+          select: {
+            id: true,
+            fromStopId: true,
+            toStopId: true,
+            boardingPointId: true,
+            droppingPointId: true,
+          },
         });
-        
-        if (activeBookingGroups) {
-          return res.status(400).json({ 
-            errorMessage: "Cannot modify stops while active bookings exist",
-            details: "There are pending or confirmed bookings that reference these stops. Please cancel or complete these bookings first, or wait until the related trips are completed."
-          });
+
+        // Check if all active bookings can be migrated to new route
+        // New route must have enough stops to cover all existing booking indices
+        if (activeBookingGroups.length > 0) {
+          const maxStopIndexNeeded = Math.max(
+            ...activeBookingGroups.map(bg => {
+              const fromIdx = oldIdToStopIndex.get(bg.fromStopId) ?? 0;
+              const toIdx = oldIdToStopIndex.get(bg.toStopId) ?? 0;
+              return Math.max(fromIdx, toIdx);
+            })
+          );
+
+          if (maxStopIndexNeeded >= stops.length) {
+            return res.status(400).json({
+              errorMessage: "Cannot update route: new route has fewer stops than existing bookings require",
+              details: `Active bookings reference stop index ${maxStopIndexNeeded}, but new route only has ${stops.length} stops (indices 0-${stops.length - 1}). Please ensure the new route has at least ${maxStopIndexNeeded + 1} stops, or cancel the affected bookings first.`
+            });
+          }
         }
       }
 
-      // Use transaction to delete old stops and create new ones
+      // Use transaction to handle stops update with booking migration
       // Increased timeout for routes with many stops and boarding points
       const result = await prisma.$transaction(
         async (tx) => {
-          // First, delete any cancelled/refunded BookingGroups that reference these stops
-          // This allows us to delete the stops safely (their payments/bookings will cascade delete)
+          // STEP 1: Move old stops to negative indices to avoid unique constraint conflict
+          // (busId + stopIndex must be unique, so we can't have old and new stops with same index)
           if (existingStopIds.length > 0) {
-            // Delete bookings first (they have cascade from BookingGroup)
-            const cancelledGroups = await tx.bookingGroup.findMany({
-              where: {
-                OR: [
-                  { fromStopId: { in: existingStopIds } },
-                  { toStopId: { in: existingStopIds } },
-                ],
-                status: { in: ['CANCELLED', 'REFUNDED'] },
-              },
-              select: { id: true },
-            });
-            
-            const cancelledGroupIds = cancelledGroups.map(g => g.id);
-            
-            if (cancelledGroupIds.length > 0) {
-              // Delete in correct order to respect foreign keys
-              await tx.booking.deleteMany({
-                where: { groupId: { in: cancelledGroupIds } },
-              });
-              
-              await tx.payment.deleteMany({
-                where: { bookingGroupId: { in: cancelledGroupIds } },
-              });
-              
-              await tx.bookingGroup.deleteMany({
-                where: { id: { in: cancelledGroupIds } },
+            for (const [i, stop] of existingStops.entries()) {
+              await tx.stop.update({
+                where: { id: stop.id },
+                data: { stopIndex: -(i + 1) }, // -1, -2, -3, etc.
               });
             }
           }
-          
-          // Delete existing stops for this bus
-          await tx.stop.deleteMany({
-            where: { busId },
-          });
 
-          // Create new stops with proper indexing
+          // STEP 2: Create new stops with correct indices
           const createdStops = await Promise.all(
             stops.map((stop: any, index: number) =>
               tx.stop.create({
@@ -1229,18 +1226,88 @@ adminRouter.post(
             )
           );
 
+          // STEP 3: Migrate active bookings to new stops based on stopIndex mapping
+          if (activeBookingGroups.length > 0) {
+            // Build mapping from stopIndex to new stop ID
+            const newStopIndexToId = new Map(createdStops.map(s => [s.stopIndex, s.id]));
+
+            // Update each active booking group to point to new stops
+            for (const bg of activeBookingGroups) {
+              const fromStopIndex = oldIdToStopIndex.get(bg.fromStopId);
+              const toStopIndex = oldIdToStopIndex.get(bg.toStopId);
+
+              if (fromStopIndex !== undefined && toStopIndex !== undefined) {
+                const newFromStopId = newStopIndexToId.get(fromStopIndex);
+                const newToStopId = newStopIndexToId.get(toStopIndex);
+
+                if (newFromStopId && newToStopId) {
+                  await tx.bookingGroup.update({
+                    where: { id: bg.id },
+                    data: {
+                      fromStopId: newFromStopId,
+                      toStopId: newToStopId,
+                      // Clear boarding/dropping points as old StopPoints will be deleted
+                      boardingPointId: null,
+                      droppingPointId: null,
+                    },
+                  });
+                }
+              }
+            }
+          }
+
+          // STEP 4: Delete cancelled/refunded BookingGroups that reference old stops
+          if (existingStopIds.length > 0) {
+            const cancelledGroups = await tx.bookingGroup.findMany({
+              where: {
+                OR: [
+                  { fromStopId: { in: existingStopIds } },
+                  { toStopId: { in: existingStopIds } },
+                ],
+                status: { in: ['CANCELLED', 'REFUNDED'] },
+              },
+              select: { id: true },
+            });
+
+            const cancelledGroupIds = cancelledGroups.map(g => g.id);
+
+            if (cancelledGroupIds.length > 0) {
+              await tx.booking.deleteMany({
+                where: { groupId: { in: cancelledGroupIds } },
+              });
+
+              await tx.payment.deleteMany({
+                where: { bookingGroupId: { in: cancelledGroupIds } },
+              });
+
+              await tx.bookingGroup.deleteMany({
+                where: { id: { in: cancelledGroupIds } },
+              });
+            }
+          }
+
+          // STEP 5: Delete old stops (now safe - no active bookings reference them)
+          if (existingStopIds.length > 0) {
+            await tx.stop.deleteMany({
+              where: { id: { in: existingStopIds } },
+            });
+          }
+
           return createdStops;
         },
         {
           maxWait: 10000, // Wait up to 10 seconds for transaction slot
-          timeout: 20000, // Allow up to 20 seconds for transaction to complete
+          timeout: 30000, // Allow up to 30 seconds for transaction (increased for booking migration)
         }
       );
 
       return res.status(200).json({
-        message: "Stops added successfully",
+        message: activeBookingGroups.length > 0
+          ? `Stops updated successfully. ${activeBookingGroups.length} active booking(s) migrated to new route.`
+          : "Stops added successfully",
         count: result.length,
         stops: result,
+        migratedBookings: activeBookingGroups.length,
       });
     } catch (e: any) {
       console.error("Error adding stops:", e);
