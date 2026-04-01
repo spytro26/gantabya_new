@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
-import { FaArrowLeft, FaUser, FaCheckCircle } from 'react-icons/fa';
+import { FaArrowLeft, FaUser, FaCheckCircle, FaDownload, FaEnvelope, FaPhone, FaWhatsapp } from 'react-icons/fa';
 
 interface Passenger {
   seatId: string;
@@ -39,9 +39,13 @@ const AdminOfflineBookingPassengers: React.FC = () => {
   );
 
   const [adminNotes, setAdminNotes] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [bookingGroupId, setBookingGroupId] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
 
   const handlePassengerChange = (index: number, field: keyof Passenger, value: any) => {
     setPassengers((prev) =>
@@ -80,21 +84,41 @@ const AdminOfflineBookingPassengers: React.FC = () => {
         boardingPointId: routeState.boardingPointId,
         droppingPointId: routeState.droppingPointId,
         adminNotes,
+        customerPhone: customerPhone || undefined,
+        customerEmail: customerEmail || undefined,
       });
 
       if (response.data) {
+        setBookingGroupId(response.data.bookingGroupId);
+        setEmailSent(response.data.emailSent || false);
         setSuccess(true);
-        setTimeout(() => {
-          navigate('/admin/offline-booking', {
-            state: { bookingSuccess: true },
-          });
-        }, 2000);
       }
     } catch (err: any) {
       console.error('Error creating booking:', err);
       setError(err.response?.data?.errorMessage || 'Failed to create booking');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!bookingGroupId) return;
+    try {
+      const response = await api.get(`/user/booking/download-ticket/${bookingGroupId}`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `ticket-${bookingGroupId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading PDF:', err);
+      setError('Failed to download ticket PDF');
     }
   };
 
@@ -107,12 +131,34 @@ const AdminOfflineBookingPassengers: React.FC = () => {
             <h2 className="text-2xl font-bold text-green-800 mb-2">
               Booking Successful!
             </h2>
-            <p className="text-green-700">
+            <p className="text-green-700 mb-4">
               Offline booking created successfully. Payment marked as COD.
             </p>
-            <p className="text-sm text-green-600 mt-4">
-              Redirecting to bookings list...
-            </p>
+            
+            {emailSent && customerEmail && (
+              <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 mb-4">
+                <p className="text-blue-700 flex items-center justify-center gap-2">
+                  <FaEnvelope className="text-blue-500" />
+                  Ticket PDF sent to: <strong>{customerEmail}</strong>
+                </p>
+              </div>
+            )}
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
+              <button
+                onClick={handleDownloadPdf}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
+              >
+                <FaDownload />
+                Download Ticket PDF
+              </button>
+              <button
+                onClick={() => navigate('/admin/offline-booking', { state: { bookingSuccess: true } })}
+                className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition"
+              >
+                Book Another Ticket
+              </button>
+            </div>
           </div>
         </div>
       </AdminLayout>
@@ -226,6 +272,56 @@ const AdminOfflineBookingPassengers: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Customer Contact Info - For sending ticket */}
+        <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+          <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
+            <FaUser className="text-blue-600" />
+            Customer Contact Information
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            Optional: Enter customer contact to send ticket PDF via email. Phone/WhatsApp for future integration.
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <FaPhone className="text-gray-500" />
+                Phone Number
+                <span className="text-xs text-gray-400">(Optional - for WhatsApp)</span>
+              </label>
+              <input
+                type="tel"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., 9841234567"
+              />
+              <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                <FaWhatsapp className="text-green-500" />
+                Will be used for WhatsApp integration later
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <FaEnvelope className="text-gray-500" />
+                Email Address
+                <span className="text-xs text-gray-400">(Optional)</span>
+              </label>
+              <input
+                type="email"
+                value={customerEmail}
+                onChange={(e) => setCustomerEmail(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="customer@example.com"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                If provided, ticket PDF will be sent to this email
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Admin Notes */}

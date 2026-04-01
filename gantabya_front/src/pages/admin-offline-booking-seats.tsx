@@ -41,6 +41,9 @@ const AdminOfflineBookingSeats: React.FC = () => {
     tripDate?: string;
     fromStopId?: string;
     toStopId?: string;
+    isReturnTrip?: boolean;
+    busName?: string;
+    busNumber?: string;
   };
 
   const [busInfo, setBusInfo] = useState<BusInfo | null>(null);
@@ -54,6 +57,9 @@ const AdminOfflineBookingSeats: React.FC = () => {
   useEffect(() => {
     if (tripId && routeState?.fromStopId && routeState?.toStopId) {
       fetchBusInfo();
+    } else if (tripId && !routeState?.fromStopId) {
+      setError('Missing route information. Please go back and select from/to stops.');
+      setLoading(false);
     }
   }, [tripId]);
 
@@ -66,6 +72,7 @@ const AdminOfflineBookingSeats: React.FC = () => {
         params: {
           fromStopId: routeState.fromStopId,
           toStopId: routeState.toStopId,
+          isReturnTrip: routeState.isReturnTrip || false,
         },
       });
 
@@ -107,6 +114,7 @@ const AdminOfflineBookingSeats: React.FC = () => {
         selectedSeats,
         fromStopId: routeState.fromStopId,
         toStopId: routeState.toStopId,
+        isReturnTrip: routeState.isReturnTrip || false,
         boardingPointId: selectedBoardingPoint,
         droppingPointId: selectedDroppingPoint,
         tripDate: routeState.tripDate,

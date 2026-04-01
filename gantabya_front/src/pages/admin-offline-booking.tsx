@@ -1,35 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { FaTicketAlt, FaInfoCircle, FaBus, FaCalendar, FaArrowRight, FaSpinner } from 'react-icons/fa';
+import { FaTicketAlt, FaInfoCircle, FaBus, FaCalendar, FaArrowRight, FaSpinner, FaMapMarkerAlt, FaExchangeAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import api from '../lib/api';
 import { getDualDate } from '../utils/nepaliDateConverter';
 
+interface Stop {
+  id: string;
+  name: string;
+  city: string;
+  stopIndex: number;
+  departureTime?: string;
+  arrivalTime?: string;
+}
+
 interface Bus {
   id: string;
   busNumber: string;
   name: string;
-}
-
-interface Route {
-  id: string;
-  origin: string;
-  destination: string;
-  fromStopId?: string;
-  toStopId?: string;
-}
-
-interface Trip {
-  id: string;
-  tripDate: string;
-  departureTime: string;
-  arrivalTime: string;
-  status: string;
-  bus: Bus;
-  route: Route;
-  _count?: {
-    bookings: number;
-  };
+  type: string;
+  totalSeats: number;
+  stops: Stop[];
 }
 
 const AdminOfflineBooking: React.FC = () => {
@@ -37,51 +28,138 @@ const AdminOfflineBooking: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
-  const [trips, setTrips] = useState<Trip[]>([]);
+  const [buses, setBuses] = useState<Bus[]>([]);
+  const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
+  const [fromStopId, setFromStopId] = useState<string>('');
+  const [toStopId, setToStopId] = useState<string>('');
+  const [isReturnTrip, setIsReturnTrip] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [proceeding, setProceeding] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (selectedDate) {
-      fetchTrips();
-    }
-  }, [selectedDate]);
+    fetchBuses();
+  }, []);
 
-  const fetchTrips = async () => {
+  const fetchBuses = async () => {
     setLoading(true);
     setError('');
     try {
-      const response = await api.get('/admin/trips', {
-        params: { date: selectedDate }
-      });
-      setTrips(response.data.trips || []);
+      const response = await api.get('/admin/buses');
+      const busesWithStops = (response.data.buses || []).filter(
+        (bus: Bus) => bus.stops && bus.stops.length >= 2
+      );
+      setBuses(busesWithStops);
+      if (busesWithStops.length > 0) {
+        const firstBus = busesWithStops[0];
+        setSelectedBus(firstBus);
+        // Set default from/to stops
+        if (firstBus.stops.length >= 2) {
+          setFromStopId(firstBus.stops[0].id);
+          setToStopId(firstBus.stops[firstBus.stops.length - 1].id);
+        }
+      }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load trips');
-      setTrips([]);
+      setError(err.response?.data?.error || 'Failed to load buses');
+      setBuses([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectTrip = (trip: Trip) => {
-    navigate(`/admin/offline-booking/${trip.id}`, {
-      state: {
-        tripDate: trip.tripDate,
-        fromStopId: trip.route.fromStopId,
-        toStopId: trip.route.toStopId,
+  const handleBusChange = (busId: string) => {
+    const bus = buses.find(b => b.id === busId);
+    if (bus) {
+      setSelectedBus(bus);
+      // Reset stop selections
+      if (bus.stops.length >= 2) {
+        setFromStopId(bus.stops[0].id);
+        setToStopId(bus.stops[bus.stops.length - 1].id);
       }
-    });
+      setIsReturnTrip(false);
+    }
   };
 
-  const getAvailableSeats = (trip: Trip) => {
-    const totalSeats = 40; // Placeholder - actual count would come from bus seat layout
-    const bookedSeats = trip._count?.bookings || 0;
-    return totalSeats - bookedSeats;
+  const handleProceedToSeats = async () => {
+    if (!selectedBus || !fromStopId || !toStopId || !selectedDate) {
+      setError('Please select bus, date, and stops');
+      return;
+    }
+
+    // Validate that fromStop index < toStop index for forward, or vice versa for return
+    const fromStop = selectedBus.stops.find(s => s.id === fromStopId);
+    const toStop = selectedBus.stops.find(s => s.id === toStopId);
+    
+    if (!fromStop || !toStop) {
+      setError('Invalid stop selection');
+      return;
+    }
+
+    if (!isReturnTrip && fromStop.stopIndex >= toStop.stopIndex) {
+      setError('For forward trip, departure stop must be before arrival stop');
+      return;
+    }
+
+    if (isReturnTrip && fromStop.stopIndex <= toStop.stopIndex) {
+      setError('For return trip, departure stop must be after arrival stop');
+      return;
+    }
+
+    setProceeding(true);
+    setError('');
+
+    try {
+      // Create or get trip for this bus and date
+      const response = await api.post('/admin/trips/ensure', {
+        busId: selectedBus.id,
+        date: selectedDate,
+      });
+
+      const tripId = response.data.tripId;
+
+      // Navigate to seat selection with all necessary info
+      navigate(`/admin/offline-booking/${tripId}`, {
+        state: {
+          tripDate: selectedDate,
+          fromStopId,
+          toStopId,
+          isReturnTrip,
+          busName: selectedBus.name,
+          busNumber: selectedBus.busNumber,
+        }
+      });
+    } catch (err: any) {
+      setError(err.response?.data?.errorMessage || 'Failed to proceed');
+    } finally {
+      setProceeding(false);
+    }
+  };
+
+  const swapStops = () => {
+    const temp = fromStopId;
+    setFromStopId(toStopId);
+    setToStopId(temp);
+    setIsReturnTrip(!isReturnTrip);
+  };
+
+  // Get valid "to" stops based on selected "from" stop
+  const getValidToStops = () => {
+    if (!selectedBus || !fromStopId) return [];
+    const fromStop = selectedBus.stops.find(s => s.id === fromStopId);
+    if (!fromStop) return [];
+
+    if (isReturnTrip) {
+      // For return trip, show stops with lower index
+      return selectedBus.stops.filter(s => s.stopIndex < fromStop.stopIndex);
+    } else {
+      // For forward trip, show stops with higher index
+      return selectedBus.stops.filter(s => s.stopIndex > fromStop.stopIndex);
+    }
   };
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex items-center space-x-3 mb-2">
@@ -106,30 +184,11 @@ const AdminOfflineBooking: React.FC = () => {
                 Offline Booking Feature
               </h3>
               <p className="text-blue-700 text-sm">
-                Select a date and trip to book tickets. Payment will be marked as Cash on Delivery (COD).
-                No coupons or time restrictions apply. You can book anytime until the trip is completed.
+                Select a bus, date, and route (from-to stops). Payment will be marked as Cash on Delivery (COD).
+                No coupons or time restrictions apply. You can book anytime.
               </p>
             </div>
           </div>
-        </div>
-
-        {/* Date Selector */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            <FaCalendar className="inline mr-2" />
-            Select Travel Date
-          </label>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full md:w-auto px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          {selectedDate && (
-            <p className="text-sm text-gray-600 mt-2">
-              {getDualDate(new Date(selectedDate))}
-            </p>
-          )}
         </div>
 
         {/* Error Display */}
@@ -143,94 +202,162 @@ const AdminOfflineBooking: React.FC = () => {
         {loading && (
           <div className="bg-white rounded-lg shadow-md p-12 text-center">
             <FaSpinner className="animate-spin text-4xl text-blue-600 mx-auto mb-4" />
-            <p className="text-gray-600">Loading trips...</p>
+            <p className="text-gray-600">Loading buses...</p>
           </div>
         )}
 
-        {/* Trips List */}
-        {!loading && trips.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-gray-800">
-              Available Trips - {getDualDate(new Date(selectedDate))}
-            </h2>
-            {trips.map((trip) => (
-              <div
-                key={trip.id}
-                className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
+        {/* Booking Form */}
+        {!loading && buses.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-6">Select Trip Details</h2>
+            
+            {/* Bus Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <FaBus className="inline mr-2" />
+                Select Bus
+              </label>
+              <select
+                value={selectedBus?.id || ''}
+                onChange={(e) => handleBusChange(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <FaBus className="text-blue-600 text-2xl" />
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-800">
-                          {trip.bus.name} ({trip.bus.busNumber})
-                        </h3>
-                        <p className="text-gray-600 text-sm">
-                          {trip.route.origin} <FaArrowRight className="inline mx-2" /> {trip.route.destination}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                      <div>
-                        <p className="text-xs text-gray-500">Departure</p>
-                        <p className="font-semibold text-gray-800">{trip.departureTime}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Arrival</p>
-                        <p className="font-semibold text-gray-800">{trip.arrivalTime}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Available Seats</p>
-                        <p className="font-semibold text-green-600">
-                          {getAvailableSeats(trip)} seats
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Status</p>
-                        <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                          trip.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                          trip.status === 'COMPLETED' ? 'bg-gray-100 text-gray-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {trip.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="ml-6">
-                    <button
-                      onClick={() => handleSelectTrip(trip)}
-                      disabled={trip.status === 'CANCELLED' || trip.status === 'COMPLETED'}
-                      className={`px-6 py-3 rounded-lg font-semibold transition flex items-center space-x-2 ${
-                        trip.status === 'ACTIVE'
-                          ? 'bg-blue-600 text-white hover:bg-blue-700'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
+                {buses.map((bus) => (
+                  <option key={bus.id} value={bus.id}>
+                    {bus.name} ({bus.busNumber}) - {bus.totalSeats} seats
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <FaCalendar className="inline mr-2" />
+                Travel Date
+              </label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {selectedDate && (
+                <p className="text-sm text-gray-600 mt-2">
+                  {getDualDate(new Date(selectedDate))}
+                </p>
+              )}
+            </div>
+
+            {/* Route Selection */}
+            {selectedBus && selectedBus.stops.length >= 2 && (
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <FaMapMarkerAlt className="inline mr-2" />
+                  Select Route
+                </label>
+                
+                <div className="grid grid-cols-1 md:grid-cols-[1fr,auto,1fr] gap-4 items-end">
+                  {/* From Stop */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">From</label>
+                    <select
+                      value={fromStopId}
+                      onChange={(e) => {
+                        setFromStopId(e.target.value);
+                        // Reset toStopId if it's no longer valid
+                        const fromStop = selectedBus.stops.find(s => s.id === e.target.value);
+                        const toStop = selectedBus.stops.find(s => s.id === toStopId);
+                        if (fromStop && toStop) {
+                          if (!isReturnTrip && fromStop.stopIndex >= toStop.stopIndex) {
+                            const validToStops = selectedBus.stops.filter(s => s.stopIndex > fromStop.stopIndex);
+                            if (validToStops.length > 0) setToStopId(validToStops[0].id);
+                          }
+                        }
+                      }}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
-                      <span>Select Seats</span>
-                      <FaArrowRight />
-                    </button>
+                      {selectedBus.stops.map((stop) => (
+                        <option key={stop.id} value={stop.id}>
+                          {stop.city} - {stop.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Swap Button */}
+                  <button
+                    type="button"
+                    onClick={swapStops}
+                    className="p-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition self-end"
+                    title="Swap stops"
+                  >
+                    <FaExchangeAlt className="text-gray-600" />
+                  </button>
+
+                  {/* To Stop */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">To</label>
+                    <select
+                      value={toStopId}
+                      onChange={(e) => setToStopId(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      {getValidToStops().map((stop) => (
+                        <option key={stop.id} value={stop.id}>
+                          {stop.city} - {stop.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
+
+                {/* Direction Indicator */}
+                <div className="mt-3 flex items-center">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    isReturnTrip 
+                      ? 'bg-orange-100 text-orange-800' 
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {isReturnTrip ? '↩ Return Trip' : '→ Forward Trip'}
+                  </span>
+                </div>
               </div>
-            ))}
+            )}
+
+            {/* Submit Button */}
+            <button
+              onClick={handleProceedToSeats}
+              disabled={proceeding || !selectedBus || !fromStopId || !toStopId}
+              className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition flex items-center justify-center space-x-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              {proceeding ? (
+                <>
+                  <FaSpinner className="animate-spin" />
+                  <span>Loading...</span>
+                </>
+              ) : (
+                <>
+                  <span>Select Seats</span>
+                  <FaArrowRight />
+                </>
+              )}
+            </button>
           </div>
         )}
 
-        {/* No Trips Found */}
-        {!loading && trips.length === 0 && selectedDate && (
+        {/* No Buses Found */}
+        {!loading && buses.length === 0 && (
           <div className="bg-white rounded-lg shadow-md p-12 text-center">
             <FaBus className="text-6xl text-gray-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-800 mb-3">
-              No Trips Found
+              No Buses Found
             </h2>
             <p className="text-gray-600 mb-4">
-              No trips scheduled for {getDualDate(new Date(selectedDate))}
+              You don't have any buses with routes configured.
             </p>
             <p className="text-sm text-gray-500">
-              Trips are automatically created when needed. If you have buses configured with routes,
-              trips will be available for booking. Check your bus and route configuration if needed.
+              Please add buses and configure at least 2 stops for each bus to enable offline booking.
             </p>
           </div>
         )}
