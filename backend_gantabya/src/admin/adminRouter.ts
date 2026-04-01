@@ -3986,6 +3986,8 @@ adminRouter.post(
         boardingPointId,
         droppingPointId,
         adminNotes,
+        customerEmail,
+        customerPhone,
       } = req.body;
 
       if (!tripId || !fromStopId || !toStopId || !seatIds || !passengers) {
@@ -4097,7 +4099,7 @@ adminRouter.post(
             )
           );
 
-          await Promise.all(
+          const passengerRecords = await Promise.all(
             bookings.map((booking) => {
               const p = passengers.find((p: any) => p.seatId === booking.seatId);
               if (!p) throw new Error("Passenger data missing for seat");
@@ -4129,19 +4131,316 @@ adminRouter.post(
             },
           });
 
-          return bookingGroup;
+          // Fetch boarding and dropping points if provided
+          const boardingPoint = boardingPointId
+            ? await tx.stopPoint.findUnique({ where: { id: boardingPointId } })
+            : null;
+          const droppingPoint = droppingPointId
+            ? await tx.stopPoint.findUnique({ where: { id: droppingPointId } })
+            : null;
+
+          return {
+            bookingGroup,
+            bookings,
+            passengerRecords,
+            seats,
+            fromStop,
+            toStop,
+            boardingPoint,
+            droppingPoint,
+            totalPrice,
+            trip,
+          };
         },
         { maxWait: 15000, timeout: 30000 }
       );
 
+      // Generate PDF ticket
+      let pdfBuffer: Buffer | null = null;
+      try {
+        const { generateTicketPDF } = await import("../services/pdfService.js");
+
+        // Get first passenger name for customer name (or use customerEmail if provided)
+        const customerName = result.passengerRecords[0]?.name || "Customer";
+
+        const ticketData = {
+          bookingGroupId: result.bookingGroup.id,
+          bookedAt: result.bookingGroup.createdAt.toISOString(),
+          user: {
+            name: customerName,
+            email: customerEmail || "",
+          },
+          trip: {
+            tripDate: result.trip.tripDate.toISOString(),
+            tripStatus: result.trip.status,
+          },
+          bus: {
+            busNumber: result.trip.bus.busNumber,
+            name: result.trip.bus.name,
+            type: result.trip.bus.type,
+          },
+          route: {
+            from: {
+              name: result.fromStop.name,
+              city: result.fromStop.city,
+              departureTime: result.fromStop.departureTime,
+            },
+            to: {
+              name: result.toStop.name,
+              city: result.toStop.city,
+              arrivalTime: result.toStop.arrivalTime,
+            },
+          },
+          boardingPoint: result.boardingPoint
+            ? {
+                name: result.boardingPoint.name,
+                landmark: result.boardingPoint.landmark,
+                time: result.boardingPoint.time,
+              }
+            : null,
+          droppingPoint: result.droppingPoint
+            ? {
+                name: result.droppingPoint.name,
+                landmark: result.droppingPoint.landmark,
+                time: result.droppingPoint.time,
+              }
+            : null,
+          seats: result.passengerRecords.map((p, idx) => {
+            const booking = result.bookings[idx];
+            const seat = result.seats.find((s) => s.id === booking?.seatId);
+            return {
+              seatNumber: seat?.seatNumber || "",
+              seatLevel: seat?.level || "LOWER",
+              seatType: seat?.type || "SEATER",
+              fare: 0, // Admin offline booking doesn't track individual fares
+              passenger: {
+                name: p.name,
+                age: p.age,
+                gender: p.gender,
+              },
+            };
+          }),
+          pricing: {
+            totalPrice: result.totalPrice,
+            discountAmount: 0,
+            finalPrice: result.totalPrice,
+          },
+          payment: {
+            method: "COD",
+            amountPaid: result.totalPrice,
+            currency: "NPR",
+          },
+          status: "CONFIRMED" as const,
+        };
+
+        pdfBuffer = await generateTicketPDF(ticketData);
+
+        // Send email if customerEmail is provided
+        if (customerEmail && customerEmail.trim()) {
+          const { sendBookingConfirmationEmail } = await import(
+            "../services/brevoEmailService.js"
+          );
+
+          await sendBookingConfirmationEmail(
+            customerEmail.trim(),
+            customerName,
+            {
+              bookingGroupId: result.bookingGroup.id,
+              busName: result.trip.bus.name,
+              busNumber: result.trip.bus.busNumber,
+              tripDate: result.trip.tripDate.toLocaleDateString("en-IN"),
+              fromStop: result.fromStop.name,
+              toStop: result.toStop.name,
+              boardingPoint: result.boardingPoint?.name || "",
+              boardingTime: result.boardingPoint?.time || "",
+              droppingPoint: result.droppingPoint?.name || "",
+              seats: ticketData.seats.map((s) => ({
+                seatNumber: s.seatNumber,
+                passengerName: s.passenger.name,
+                age: s.passenger.age,
+                gender: s.passenger.gender,
+                level: s.seatLevel,
+                type: s.seatType,
+              })),
+              totalPrice: result.totalPrice,
+              discountAmount: 0,
+              finalPrice: result.totalPrice,
+              bookedAt: result.bookingGroup.createdAt.toLocaleString("en-IN"),
+            },
+            pdfBuffer
+          );
+          console.log("✅ Offline booking confirmation email sent to:", customerEmail);
+        }
+      } catch (pdfError) {
+        console.error("Error generating PDF or sending email:", pdfError);
+        // Don't fail the booking if PDF/email fails
+      }
+
       return res.status(200).json({
         message: "Offline booking created successfully",
-        bookingGroupId: result.id,
+        bookingGroupId: result.bookingGroup.id,
+        emailSent: !!(customerEmail && customerEmail.trim()),
       });
     } catch (error: any) {
       console.error("Error creating offline booking:", error);
       return res.status(500).json({
         errorMessage: error.message || "Failed to create offline booking",
+      });
+    }
+  }
+);
+
+// Admin endpoint to download booking PDF
+adminRouter.get(
+  "/booking/:bookingGroupId/pdf",
+  authenticateAdmin,
+  async (req: AuthRequest, res): Promise<any> => {
+    const adminId = req.adminId;
+    if (!adminId) {
+      return res.status(401).json({ errorMessage: "Admin not authenticated" });
+    }
+
+    try {
+      const { bookingGroupId } = req.params;
+
+      if (!bookingGroupId) {
+        return res.status(400).json({ errorMessage: "Booking Group ID is required" });
+      }
+
+      // Fetch the booking group with all related data
+      const bookingGroup = await prisma.bookingGroup.findUnique({
+        where: { id: bookingGroupId },
+        include: {
+          fromStop: true,
+          toStop: true,
+          boardingPoint: true,
+          droppingPoint: true,
+          trip: {
+            include: {
+              bus: {
+                select: {
+                  name: true,
+                  busNumber: true,
+                  type: true,
+                  adminId: true,
+                },
+              },
+            },
+          },
+          bookings: {
+            include: {
+              seat: true,
+              passenger: true,
+            },
+          },
+          payment: true,
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      if (!bookingGroup) {
+        return res.status(404).json({ errorMessage: "Booking not found" });
+      }
+
+      // Verify admin owns this bus
+      if (bookingGroup.trip.bus.adminId !== adminId) {
+        return res.status(403).json({ errorMessage: "Not authorized to access this booking" });
+      }
+
+      const { generateTicketPDF } = await import("../services/pdfService.js");
+
+      // Get customer name from first passenger or user
+      const firstPassenger = bookingGroup.bookings[0]?.passenger;
+      const customerName = firstPassenger?.name || bookingGroup.user?.name || "Customer";
+
+      const ticketData = {
+        bookingGroupId: bookingGroup.id,
+        bookedAt: bookingGroup.createdAt.toISOString(),
+        user: {
+          name: customerName,
+          email: firstPassenger?.email || bookingGroup.user?.email || "",
+        },
+        trip: {
+          tripDate: bookingGroup.trip.tripDate.toISOString(),
+          tripStatus: bookingGroup.trip.status,
+        },
+        bus: {
+          busNumber: bookingGroup.trip.bus.busNumber,
+          name: bookingGroup.trip.bus.name,
+          type: bookingGroup.trip.bus.type,
+        },
+        route: {
+          from: {
+            name: bookingGroup.fromStop.name,
+            city: bookingGroup.fromStop.city,
+            departureTime: bookingGroup.fromStop.departureTime,
+          },
+          to: {
+            name: bookingGroup.toStop.name,
+            city: bookingGroup.toStop.city,
+            arrivalTime: bookingGroup.toStop.arrivalTime,
+          },
+        },
+        boardingPoint: bookingGroup.boardingPoint
+          ? {
+              name: bookingGroup.boardingPoint.name,
+              landmark: bookingGroup.boardingPoint.landmark,
+              time: bookingGroup.boardingPoint.time,
+            }
+          : null,
+        droppingPoint: bookingGroup.droppingPoint
+          ? {
+              name: bookingGroup.droppingPoint.name,
+              landmark: bookingGroup.droppingPoint.landmark,
+              time: bookingGroup.droppingPoint.time,
+            }
+          : null,
+        seats: bookingGroup.bookings.map((booking) => ({
+          seatNumber: booking.seat.seatNumber,
+          seatLevel: booking.seat.level,
+          seatType: booking.seat.type,
+          fare: 0,
+          passenger: {
+            name: booking.passenger?.name || "Passenger",
+            age: booking.passenger?.age || 0,
+            gender: booking.passenger?.gender || "Other",
+          },
+        })),
+        pricing: {
+          totalPrice: bookingGroup.totalPrice,
+          discountAmount: bookingGroup.discountAmount,
+          finalPrice: bookingGroup.finalPrice ?? bookingGroup.totalPrice,
+        },
+        payment: bookingGroup.payment
+          ? {
+              method: bookingGroup.payment.method,
+              amountPaid: bookingGroup.payment.chargedAmount,
+              currency: bookingGroup.payment.chargedCurrency,
+            }
+          : undefined,
+        status: bookingGroup.status,
+      };
+
+      const pdfBuffer = await generateTicketPDF(ticketData);
+
+      // Set headers for PDF download
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="ticket-${bookingGroupId}.pdf"`
+      );
+      res.setHeader("Content-Length", pdfBuffer.length);
+
+      return res.send(pdfBuffer);
+    } catch (error: any) {
+      console.error("Error generating PDF:", error);
+      return res.status(500).json({
+        errorMessage: error.message || "Failed to generate PDF",
       });
     }
   }
