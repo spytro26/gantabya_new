@@ -21,6 +21,8 @@ import {
   FaChevronDown,
   FaCreditCard,
   FaMobileAlt,
+  FaEnvelope,
+  FaPhone,
 } from 'react-icons/fa';
 import { GiSteeringWheel } from 'react-icons/gi';
 import type { BusInfo, Seat } from '../types/booking';
@@ -65,6 +67,11 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
     routeState?.droppingPointId || ''
   );
   const [isConfirmationReady, setIsConfirmationReady] = useState(false);
+
+  // Admin-only: Customer contact for sending ticket
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === 'undefined') {
       return false;
@@ -333,7 +340,7 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
 
       // Admin COD booking - use admin offline booking endpoint
       if (isAdmin) {
-        await api.post(API_ENDPOINTS.ADMIN_OFFLINE_BOOKING, {
+        const response = await api.post(API_ENDPOINTS.ADMIN_OFFLINE_BOOKING, {
           tripId,
           fromStopId: fromStopId || busInfo?.route.fromStop.id,
           toStopId: toStopId || busInfo?.route.toStop.id,
@@ -341,10 +348,17 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
           passengers: passengersArray,
           boardingPointId: selectedBoardingPointId,
           droppingPointId: selectedDroppingPointId,
-          adminNotes: 'Booked via admin offline booking'
+          adminNotes: 'Booked via admin offline booking',
+          customerEmail: customerEmail || undefined,
+          customerPhone: customerPhone || undefined,
         });
 
-        alert('Booking confirmed successfully!');
+        const emailSent = response.data?.emailSent;
+        if (emailSent && customerEmail) {
+          alert(`Booking confirmed! Ticket PDF sent to ${customerEmail}`);
+        } else {
+          alert('Booking confirmed successfully!');
+        }
         navigate('/admin/offline-booking');
         return;
       }
@@ -1456,9 +1470,48 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
                       </div>
                     </div>
                   ) : (
-                    <div className="text-sm font-semibold text-gray-700 bg-indigo-50 p-3 rounded-xl border border-indigo-100">
-                      Payment Method: Cash on Delivery (COD) <br/>
-                      <span className="text-xs font-normal text-gray-500">Bookings placed through admin are directly registered and bypass the payment gateway.</span>
+                    <div className="space-y-3">
+                      <div className="text-sm font-semibold text-gray-700 bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+                        Payment Method: Cash on Delivery (COD) <br/>
+                        <span className="text-xs font-normal text-gray-500">Bookings placed through admin are directly registered and bypass the payment gateway.</span>
+                      </div>
+
+                      {/* Customer Contact - For sending ticket */}
+                      <div className="bg-yellow-50 border-2 border-yellow-400 rounded-xl p-4">
+                        <h4 className="font-bold text-sm mb-3 flex items-center gap-2 text-yellow-800">
+                          <FaEnvelope className="text-yellow-600" />
+                          Customer Contact (Send Ticket)
+                        </h4>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              <FaEnvelope className="inline mr-1 text-blue-500" />
+                              Email (Optional)
+                            </label>
+                            <input
+                              type="email"
+                              value={customerEmail}
+                              onChange={(e) => setCustomerEmail(e.target.value)}
+                              className="w-full p-2 text-sm border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                              placeholder="customer@email.com"
+                            />
+                            <p className="text-xs text-blue-600 mt-1">If provided, ticket PDF will be sent to this email</p>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              <FaPhone className="inline mr-1 text-green-500" />
+                              Phone (Optional)
+                            </label>
+                            <input
+                              type="tel"
+                              value={customerPhone}
+                              onChange={(e) => setCustomerPhone(e.target.value)}
+                              className="w-full p-2 text-sm border-2 border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 bg-white"
+                              placeholder="9841234567"
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
 

@@ -104,7 +104,7 @@ const AdminOfflineBookingPassengers: React.FC = () => {
   const handleDownloadPdf = async () => {
     if (!bookingGroupId) return;
     try {
-      const response = await api.get(`/user/booking/download-ticket/${bookingGroupId}`, {
+      const response = await api.get(`/admin/booking/${bookingGroupId}/pdf`, {
         responseType: 'blob',
       });
       const blob = new Blob([response.data], { type: 'application/pdf' });
