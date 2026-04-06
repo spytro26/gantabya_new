@@ -218,25 +218,6 @@ const AdminOfflineBookingSeats: React.FC = () => {
     }
   };
 
-  const handleContinue = () => {
-    if (selectedSeats.length === 0 || !selectedBoardingPoint || !selectedDroppingPoint) {
-      alert('Please select seats and boarding/dropping points');
-      return;
-    }
-
-    navigate(`/admin/offline-booking/${tripId}/passengers`, {
-      state: {
-        selectedSeats,
-        fromStopId: routeState.fromStopId,
-        toStopId: routeState.toStopId,
-        isReturnTrip: routeState.isReturnTrip || false,
-        boardingPointId: selectedBoardingPoint,
-        droppingPointId: selectedDroppingPoint,
-        tripDate: routeState.tripDate,
-      },
-    });
-  };
-
   const getSeatIcon = (seat: Seat) => {
     return seat.type === 'SLEEPER' ? <FaBed /> : <FaChair />;
   };
