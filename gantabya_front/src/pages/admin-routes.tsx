@@ -25,8 +25,10 @@ interface Stop {
   stopIndex: number;
   arrivalTime: string;
   departureTime: string;
+  dayOffset: number;
   returnArrivalTime: string;
   returnDepartureTime: string;
+  returnDayOffset: number;
   distanceFromOrigin: number;
   priceFromOrigin: number;
   lowerSeaterPrice: number;
@@ -55,8 +57,10 @@ const RouteManagement: React.FC = () => {
       stopIndex: 0,
       arrivalTime: '',
       departureTime: '',
+      dayOffset: 0,
       returnArrivalTime: '',
       returnDepartureTime: '',
+      returnDayOffset: 0,
       distanceFromOrigin: 0,
       priceFromOrigin: 0,
       lowerSeaterPrice: 0,
@@ -110,8 +114,10 @@ const RouteManagement: React.FC = () => {
           stopIndex: 0,
           arrivalTime: '',
           departureTime: '',
+          dayOffset: 0,
           returnArrivalTime: '',
           returnDepartureTime: '',
+          returnDayOffset: 0,
           distanceFromOrigin: 0,
           priceFromOrigin: 0,
           lowerSeaterPrice: 0,
@@ -134,8 +140,10 @@ const RouteManagement: React.FC = () => {
           stopIndex: stops.length,
           arrivalTime: '',
           departureTime: '',
+          dayOffset: 0,
           returnArrivalTime: '',
           returnDepartureTime: '',
+          returnDayOffset: 0,
           distanceFromOrigin: 0,
           priceFromOrigin: 0,
           lowerSeaterPrice: 0,
@@ -217,6 +225,8 @@ const RouteManagement: React.FC = () => {
       const lowerSeater = index === 0 ? 0 : Number(stop.lowerSeaterPrice ?? 0);
       const lowerSleeper = index === 0 ? 0 : Number(stop.lowerSleeperPrice ?? 0);
       const upperSleeper = index === 0 ? 0 : Number(stop.upperSleeperPrice ?? 0);
+      const dayOffset = index === 0 ? 0 : Number(stop.dayOffset ?? 0);
+      const returnDayOffset = Number(stop.returnDayOffset ?? 0);
       const normalizedBoardingPoints = Array.isArray(stop.boardingPoints)
         ? stop.boardingPoints.map((point, pointIndex) => ({
             id: point.id,
@@ -244,6 +254,8 @@ const RouteManagement: React.FC = () => {
         lowerSeaterPrice: Number.isFinite(lowerSeater) ? lowerSeater : 0,
         lowerSleeperPrice: Number.isFinite(lowerSleeper) ? lowerSleeper : 0,
         upperSleeperPrice: Number.isFinite(upperSleeper) ? upperSleeper : 0,
+        dayOffset: Number.isFinite(dayOffset) ? dayOffset : 0,
+        returnDayOffset: Number.isFinite(returnDayOffset) ? returnDayOffset : 0,
         boardingPoints: normalizedBoardingPoints.map((point, order) => ({
           ...point,
           pointOrder: order,
@@ -256,6 +268,13 @@ const RouteManagement: React.FC = () => {
             : 0,
       };
     });
+
+  // Helper to convert time string and day offset to total minutes for comparison
+  const getTimeInMinutes = (time: string, dayOffset: number): number => {
+    if (!time) return -1;
+    const [hours, minutes] = time.split(':').map(Number);
+    return dayOffset * 24 * 60 + hours * 60 + minutes;
+  };
 
   const handleSave = async () => {
     if (!selectedBus) {
@@ -273,13 +292,13 @@ const RouteManagement: React.FC = () => {
     // Validate all stops
     for (let i = 0; i < normalizedStops.length; i++) {
       const stop = normalizedStops[i];
-      
+
       // Basic validation
       if (!stop.name || !stop.city) {
         setError(`Stop ${i + 1}: Name and city are required`);
         return;
       }
-      
+
       // Time validation
       if (i > 0 && !stop.arrivalTime) {
         setError(`Stop ${i + 1}: Arrival time is required`);
@@ -289,21 +308,33 @@ const RouteManagement: React.FC = () => {
         setError(`Stop ${i + 1}: Departure time is required`);
         return;
       }
-      
-      // Check arrival is after previous departure
+
+      // Check arrival is after previous departure (considering day offset)
       if (i > 0 && stop.arrivalTime && normalizedStops[i - 1].departureTime) {
-        if (stop.arrivalTime <= normalizedStops[i - 1].departureTime) {
-          setError(`Stop ${i + 1}: Arrival time (${stop.arrivalTime}) must be after Stop ${i}'s departure time (${normalizedStops[i - 1].departureTime})`);
+        const prevDepartureMinutes = getTimeInMinutes(normalizedStops[i - 1].departureTime, normalizedStops[i - 1].dayOffset);
+        const currentArrivalMinutes = getTimeInMinutes(stop.arrivalTime, stop.dayOffset);
+
+        if (currentArrivalMinutes <= prevDepartureMinutes) {
+          setError(`Stop ${i + 1}: Arrival time (Day ${stop.dayOffset + 1} ${stop.arrivalTime}) must be after Stop ${i}'s departure time (Day ${normalizedStops[i - 1].dayOffset + 1} ${normalizedStops[i - 1].departureTime})`);
           return;
         }
       }
-      
-      // Check departure is after arrival for same stop
+
+      // Check departure is after arrival for same stop (considering day offset - departure can be on next day)
       if (stop.arrivalTime && stop.departureTime) {
-        if (stop.departureTime <= stop.arrivalTime) {
-          setError(`Stop ${i + 1}: Departure time (${stop.departureTime}) must be after arrival time (${stop.arrivalTime})`);
+        const arrivalMinutes = getTimeInMinutes(stop.arrivalTime, stop.dayOffset);
+        const departureMinutes = getTimeInMinutes(stop.departureTime, stop.dayOffset);
+
+        if (departureMinutes <= arrivalMinutes) {
+          setError(`Stop ${i + 1}: Departure time (${stop.departureTime}) must be after arrival time (${stop.arrivalTime}) on the same day`);
           return;
         }
+      }
+
+      // Day offset validation - must be >= previous stop's day offset
+      if (i > 0 && stop.dayOffset < normalizedStops[i - 1].dayOffset) {
+        setError(`Stop ${i + 1}: Day cannot be earlier than previous stop's day`);
+        return;
       }
 
       // Validate seat-type-specific pricing (cumulative from origin)
@@ -525,12 +556,29 @@ const RouteManagement: React.FC = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Arrival Time <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="time"
-                        value={stop.arrivalTime}
-                        onChange={(e) => updateStop(index, 'arrivalTime', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="time"
+                          value={stop.arrivalTime}
+                          onChange={(e) => updateStop(index, 'arrivalTime', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                        />
+                        <select
+                          value={stop.dayOffset}
+                          onChange={(e) => updateStop(index, 'dayOffset', parseInt(e.target.value))}
+                          className="px-3 py-2 border border-orange-300 bg-orange-50 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm font-medium"
+                        >
+                          <option value={0}>Day 1</option>
+                          <option value={1}>Day 2</option>
+                          <option value={2}>Day 3</option>
+                          <option value={3}>Day 4</option>
+                        </select>
+                      </div>
+                      {stop.dayOffset > 0 && (
+                        <p className="text-xs text-orange-600 mt-1 font-medium">
+                          +{stop.dayOffset} day{stop.dayOffset > 1 ? 's' : ''} from departure
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -558,7 +606,7 @@ const RouteManagement: React.FC = () => {
                   <p className="text-xs text-gray-600 mb-3">
                     Configure return trip timings to allow buses to run in both directions (e.g., A→B and B→A). Price and distance remain the same.
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {index < stops.length - 1 && (
                       <div>
                         <label className="block text-sm font-medium text-blue-700 mb-1">
@@ -574,7 +622,7 @@ const RouteManagement: React.FC = () => {
                         <p className="text-xs text-gray-500 mt-1">Arrival time when traveling in reverse</p>
                       </div>
                     )}
-                    
+
                     {index > 0 && (
                       <div>
                         <label className="block text-sm font-medium text-blue-700 mb-1">
@@ -588,6 +636,29 @@ const RouteManagement: React.FC = () => {
                           placeholder="Return departure"
                         />
                         <p className="text-xs text-gray-500 mt-1">Departure time when traveling in reverse</p>
+                      </div>
+                    )}
+
+                    {index > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-blue-700 mb-1">
+                          Return Day
+                        </label>
+                        <select
+                          value={stop.returnDayOffset}
+                          onChange={(e) => updateStop(index, 'returnDayOffset', parseInt(e.target.value))}
+                          className="w-full px-3 py-2 border border-blue-300 bg-blue-50 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-medium"
+                        >
+                          <option value={0}>Day 1</option>
+                          <option value={1}>Day 2</option>
+                          <option value={2}>Day 3</option>
+                          <option value={3}>Day 4</option>
+                        </select>
+                        {stop.returnDayOffset > 0 && (
+                          <p className="text-xs text-orange-600 mt-1 font-medium">
+                            +{stop.returnDayOffset} day{stop.returnDayOffset > 1 ? 's' : ''} from return departure
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>

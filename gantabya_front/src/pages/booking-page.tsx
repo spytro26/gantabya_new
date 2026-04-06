@@ -23,6 +23,8 @@ import {
   FaMobileAlt,
   FaEnvelope,
   FaPhone,
+  FaMale,
+  FaFemale,
 } from 'react-icons/fa';
 import { GiSteeringWheel } from 'react-icons/gi';
 import type { BusInfo, Seat } from '../types/booking';
@@ -763,6 +765,9 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
               const displayTime = busInfo.route.isReturnTrip
                 ? stop.returnDepartureTime || stop.returnArrivalTime || stop.departureTime || '--'
                 : stop.departureTime || stop.arrivalTime || '--';
+              const displayDayOffset = busInfo.route.isReturnTrip
+                ? (stop.returnDayOffset ?? 0)
+                : (stop.dayOffset ?? 0);
 
               return (
                 <div key={stop.id} className="flex items-center gap-4">
@@ -776,7 +781,16 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
                     <div className="text-sm font-semibold">
                       {stop.city || stop.name}
                     </div>
-                    <div className="text-xs opacity-80">{displayTime}</div>
+                    <div className="text-xs opacity-80">
+                      {displayTime}
+                      {displayDayOffset > 0 && (
+                        <span className={`ml-1 inline-block rounded px-1 py-0.5 text-[9px] font-semibold ${
+                          isActive ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-600'
+                        }`}>
+                          +{displayDayOffset}D
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {index < path.length - 1 && (
                     <span
@@ -855,19 +869,31 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
                 {seats.map((seat) => {
                   const isSelected = selectedSeats.includes(seat.id);
                   const isAvailable = seat.isAvailable;
-                  
+                  const isVerticalSleeper = seat.type === 'SLEEPER' && seat.rowSpan === 2 && seat.columnSpan === 1;
+
+                  // Couple seat: TWO vertical sleepers side by side (adjacent columns)
+                  // Only show couple icon when there's another vertical sleeper in left OR right column
+                  const isCoupeSeat = isVerticalSleeper && seats.some((adjacentSeat) =>
+                    adjacentSeat.id !== seat.id &&
+                    adjacentSeat.type === 'SLEEPER' &&
+                    adjacentSeat.rowSpan === 2 &&
+                    adjacentSeat.columnSpan === 1 &&
+                    adjacentSeat.row === seat.row &&
+                    (adjacentSeat.column === seat.column - 1 || adjacentSeat.column === seat.column + 1)
+                  );
+
                   // Scale bed icon based on span
                   const getBedIconClass = () => {
                     if (seat.type !== 'SLEEPER') return 'text-sm sm:text-base md:text-lg lg:text-xl';
-                    
+
                     // Vertical sleeper
                     if (seat.rowSpan === 2) return 'text-base sm:text-lg md:text-xl lg:text-2xl';
-                    
+
                     // Horizontal sleeper
                     if (seat.columnSpan === 2) return 'text-base sm:text-lg md:text-xl lg:text-2xl';
                     if (seat.columnSpan === 3) return 'text-lg sm:text-xl md:text-2xl lg:text-3xl';
                     if (seat.columnSpan === 4) return 'text-xl sm:text-2xl md:text-3xl lg:text-4xl';
-                    
+
                     return 'text-sm sm:text-base md:text-lg lg:text-xl';
                   };
 
@@ -895,7 +921,15 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
                       `}
                     >
                       {seat.type === 'SLEEPER' ? (
-                        <FaBed className={`${getBedIconClass()} mb-0.5`} />
+                        <>
+                          <FaBed className={`${getBedIconClass()} mb-0.5`} />
+                          {isCoupeSeat && (
+                            <div className="flex items-center gap-0.5 text-[8px] sm:text-[10px]">
+                              <FaMale className="text-blue-500" />
+                              <FaFemale className="text-pink-500" />
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <FaChair className="text-sm sm:text-base md:text-lg lg:text-xl mb-0.5" />
                       )}
@@ -1095,6 +1129,11 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
                 </div>
                 <div className="text-[11px] text-gray-500">
                   {(busInfo.route.fromStop.departureTime || '--')} • {(busInfo.route.toStop.arrivalTime || '--')}
+                  {(busInfo.route.toStop.dayOffset ?? 0) > 0 && (
+                    <span className="ml-1 inline-block rounded bg-orange-100 px-1.5 py-0.5 text-[9px] font-semibold text-orange-600">
+                      +{busInfo.route.toStop.dayOffset} Day
+                    </span>
+                  )}
                 </div>
               </div>
               <button
@@ -1703,7 +1742,14 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
                               />
                               <div>
                                 <div className="text-sm font-semibold text-gray-800">{point.name}</div>
-                                <div className="text-xs text-gray-500">{point.time}</div>
+                                <div className="text-xs text-gray-500">
+                                  {point.time}
+                                  {(point.dayOffset ?? 0) > 0 && (
+                                    <span className="ml-1 inline-block rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-600">
+                                      +{point.dayOffset} Day
+                                    </span>
+                                  )}
+                                </div>
                                 {point.landmark && (
                                   <div className="text-xs text-gray-400 mt-1">{point.landmark}</div>
                                 )}

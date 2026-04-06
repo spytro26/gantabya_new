@@ -105,15 +105,17 @@ model Stop {
   busId         String
   bus           Bus     @relation(fields: [busId], references: [id], onDelete: Cascade)
   name          String
-  city          String // City name for better filteringF
+  city          String // City name for better filtering
   state         String? // Optional state
   stopIndex     Int // Order of stop (0 = origin, 1 = next, etc.)
   arrivalTime   String? // Time in format "10:30 AM" - Null for first stop (forward trip)
   departureTime String? // Time in format "10:30 AM" - Null for last stop (forward trip)
+  dayOffset     Int     @default(0) // Day offset from departure (0 = same day, 1 = next day, etc.)
 
   // Return trip timings (for reverse direction)
   returnArrivalTime   String? // Arrival time when traveling in reverse (e.g., D→A)
   returnDepartureTime String? // Departure time when traveling in reverse
+  returnDayOffset     Int     @default(0) // Day offset for return trip
 
   distanceFromOrigin Float @default(0) // Distance in KM from origin
   priceFromOrigin    Float @default(0) // Cumulative price from origin (DEPRECATED - use seat-specific prices)

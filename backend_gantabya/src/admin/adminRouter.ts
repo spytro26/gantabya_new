@@ -1178,12 +1178,14 @@ adminRouter.post(
                   arrivalTime: index === 0 ? null : stop.arrivalTime,
                   departureTime:
                     index === stops.length - 1 ? null : stop.departureTime,
+                  dayOffset: index === 0 ? 0 : (typeof stop.dayOffset === "number" ? stop.dayOffset : 0),
                   returnArrivalTime:
                     index === stops.length - 1
                       ? null
                       : stop.returnArrivalTime || null,
                   returnDepartureTime:
                     index === 0 ? null : stop.returnDepartureTime || null,
+                  returnDayOffset: typeof stop.returnDayOffset === "number" ? stop.returnDayOffset : 0,
                   distanceFromOrigin:
                     typeof stop.distanceFromOrigin === "number"
                       ? stop.distanceFromOrigin

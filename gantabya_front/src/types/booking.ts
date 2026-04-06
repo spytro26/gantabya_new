@@ -22,6 +22,7 @@ export interface StopPointOption {
   landmark?: string | null;
   address?: string | null;
   pointOrder: number;
+  dayOffset?: number;
 }
 
 export interface RouteStop {
@@ -32,8 +33,10 @@ export interface RouteStop {
   stopIndex: number;
   arrivalTime: string | null;
   departureTime: string | null;
+  dayOffset: number;
   returnArrivalTime: string | null;
   returnDepartureTime: string | null;
+  returnDayOffset: number;
   boardingPoints: StopPointOption[];
 }
 
@@ -67,6 +70,7 @@ export interface BusInfo {
       city: string;
       stopIndex: number;
       departureTime: string | null;
+      dayOffset: number;
       lowerSeaterPrice: number;
       lowerSleeperPrice: number;
       upperSleeperPrice: number;
@@ -78,6 +82,7 @@ export interface BusInfo {
       city: string;
       stopIndex: number;
       arrivalTime: string | null;
+      dayOffset: number;
       lowerSeaterPrice: number;
       lowerSleeperPrice: number;
       upperSleeperPrice: number;

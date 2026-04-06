@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaSave, FaBed, FaChair, FaTimes, FaLayerGroup, FaArrowLeft } from 'react-icons/fa';
+import { FaSave, FaBed, FaChair, FaTimes, FaLayerGroup, FaArrowLeft, FaMale, FaFemale } from 'react-icons/fa';
 import { GiSteeringWheel } from 'react-icons/gi';
 import AdminLayout from '../components/AdminLayout';
 import api from '../lib/api';
@@ -531,7 +531,20 @@ const SeatLayoutDesigner: React.FC = () => {
                   <div className="w-12 h-12 border-2 border-purple-500 bg-purple-100 rounded flex items-center justify-center font-bold text-purple-700">2</div>
                   <div className="w-12 h-12 border-2 border-purple-500 bg-purple-100 rounded flex items-center justify-center font-bold text-purple-700">2</div>
                 </div>
-                <span className="text-gray-700">Sleeper</span>
+                <span className="text-gray-700">Horizontal Sleeper</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="flex flex-col space-y-1">
+                  <div className="w-12 h-12 border-2 border-purple-500 bg-purple-100 rounded flex flex-col items-center justify-center">
+                    <FaBed className="text-purple-600 text-lg" />
+                    <div className="flex items-center gap-0.5 text-[8px]">
+                      <FaMale className="text-blue-500" />
+                      <FaFemale className="text-pink-500" />
+                    </div>
+                  </div>
+                  <div className="w-12 h-12 border-2 border-purple-500 bg-purple-100 rounded flex items-center justify-center font-bold text-purple-700">3</div>
+                </div>
+                <span className="text-gray-700">Vertical Sleeper (Couple Seat)</span>
               </div>
             </div>
           </div>
@@ -577,7 +590,28 @@ const SeatLayoutDesigner: React.FC = () => {
                   <div className="flex flex-col gap-2">
                     {currentGrid.map((row, rowIndex) => (
                       <div key={rowIndex} className="flex gap-2 justify-center">
-                        {row.map((cell, colIndex) => (
+                        {row.map((cell, colIndex) => {
+                          // Check if this is a vertical sleeper (cell below has same seat number)
+                          const cellBelow = currentGrid[rowIndex + 1]?.[colIndex];
+                          const isVerticalSleeper = cell.type === 'SLEEPER' &&
+                            !cell.spanning &&
+                            cellBelow?.seatNumber === cell.seatNumber;
+
+                          // Couple seat: TWO vertical sleepers side by side (adjacent columns)
+                          // Check if adjacent column (left or right) also has a vertical sleeper
+                          const hasAdjacentVerticalSleeper = (adjColIndex: number) => {
+                            const adjCell = currentGrid[rowIndex]?.[adjColIndex];
+                            const adjCellBelow = currentGrid[rowIndex + 1]?.[adjColIndex];
+                            return adjCell?.type === 'SLEEPER' &&
+                              !adjCell?.spanning &&
+                              adjCellBelow?.seatNumber === adjCell?.seatNumber;
+                          };
+
+                          const isCoupeSeat = isVerticalSleeper && (
+                            hasAdjacentVerticalSleeper(colIndex - 1) || hasAdjacentVerticalSleeper(colIndex + 1)
+                          );
+
+                          return (
                           <div
                             key={`${rowIndex}-${colIndex}`}
                             onClick={() => handleCellClick(rowIndex, colIndex)}
@@ -591,7 +625,7 @@ const SeatLayoutDesigner: React.FC = () => {
                               transition-all duration-200 transform hover:scale-105 cursor-pointer
                               ${getCellStyle(cell, rowIndex, colIndex)}
                             `}
-                            title={cell.seatNumber ? `Seat ${cell.seatNumber} (${cell.type})` : 'Empty - Click to add seat'}
+                            title={cell.seatNumber ? `Seat ${cell.seatNumber} (${cell.type})${isCoupeSeat ? ' - Couple Seat' : ''}` : 'Empty - Click to add seat'}
                           >
                             {editingCell && editingCell.row === rowIndex && editingCell.col === colIndex ? (
                               <input
@@ -618,6 +652,12 @@ const SeatLayoutDesigner: React.FC = () => {
                                     {cell.type === 'SLEEPER' && (
                                       <>
                                         <FaBed className="text-purple-600 text-sm sm:text-lg md:text-xl lg:text-2xl mb-0.5" />
+                                        {isCoupeSeat && (
+                                          <div className="flex items-center gap-0.5 text-[8px] sm:text-[10px]">
+                                            <FaMale className="text-blue-500" />
+                                            <FaFemale className="text-pink-500" />
+                                          </div>
+                                        )}
                                         <span className="text-purple-700 font-bold text-[0.55rem] sm:text-xs md:text-sm">{cell.seatNumber}</span>
                                       </>
                                     )}
@@ -626,7 +666,8 @@ const SeatLayoutDesigner: React.FC = () => {
                               </>
                             )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ))}
                   </div>
