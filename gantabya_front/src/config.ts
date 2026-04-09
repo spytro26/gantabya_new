@@ -1,7 +1,25 @@
-// API Configuration
-export const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:3000";
-// jljl
+// ============================================================
+//  BACKEND URL — SINGLE SOURCE OF TRUTH
+// ============================================================
+//  To switch between LOCAL DEV and PRODUCTION, flip the
+//  IS_PRODUCTION flag below. Everything in the app reads
+//  BACKEND_URL / API_BASE_URL from here.
+//
+//  Workflow:
+//    1. Change IS_PRODUCTION (true = prod, false = local dev)
+//    2. git add . && git commit -m "switch backend url"
+//    3. git push
+//    4. On EC2:  git pull && (rebuild / restart)
+// ============================================================
+
+const IS_PRODUCTION = true; // <-- CHANGE THIS: true = production, false = localhost
+
+export const BACKEND_URL = IS_PRODUCTION
+  ? "https://api.gogantabya.com"
+  : "http://localhost:3000";
+
+// Alias kept so existing imports (`API_BASE_URL`) keep working.
+export const API_BASE_URL = BACKEND_URL;
 export const API_ENDPOINTS = {
   // User Auth
   USER_SIGNUP: "/user/signup",
