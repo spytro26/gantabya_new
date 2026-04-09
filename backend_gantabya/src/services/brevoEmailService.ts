@@ -2,11 +2,17 @@ import * as brevo from "@getbrevo/brevo";
 import "dotenv/config";
 import { getDualDateForPDF } from "../utils/nepaliDateConverter.js";
 
-const apiInstance = new brevo.TransactionalEmailsApi();
-apiInstance.setApiKey(
-  brevo.TransactionalEmailsApiApiKeys.apiKey,
-  process.env.BREVO_API_KEY || ""
-);
+function getBrevoClient(): brevo.TransactionalEmailsApi {
+  const key = process.env.BREVO_API_KEY;
+  if (!key) {
+    throw new Error(
+      "BREVO_API_KEY is missing from environment. Check that .env exists in the backend_gantabya/ directory and contains BREVO_API_KEY, and that the server is started from that directory."
+    );
+  }
+  const client = new brevo.TransactionalEmailsApi();
+  client.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, key);
+  return client;
+}
 
 /**
  * Generate a 6-digit OTP
@@ -66,7 +72,7 @@ export async function sendOTPEmail(
     };
     sendSmtpEmail.to = [{ email: userEmail }];
 
-    const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    const response = await getBrevoClient().sendTransacEmail(sendSmtpEmail);
     console.log(
       "Brevo email sent successfully:",
       (response as any).messageId || "Email sent"
@@ -180,7 +186,7 @@ export async function sendBookingConfirmationEmail(
       },
     ];
 
-    const response = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    const response = await getBrevoClient().sendTransacEmail(sendSmtpEmail);
     console.log(
       "Booking confirmation email sent successfully:",
       (response as any).messageId || "Email sent"
