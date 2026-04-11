@@ -130,7 +130,7 @@ const HolidayManagement: React.FC = () => {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 flex items-center space-x-3">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center space-x-3">
             <FaCalendarTimes className="text-red-600" />
             <span>Holiday Management</span>
           </h1>

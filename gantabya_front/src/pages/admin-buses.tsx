@@ -79,14 +79,14 @@ const BusManagement: React.FC = () => {
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Bus Management</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Bus Management</h1>
             <p className="text-gray-600 mt-1">Manage your fleet of buses</p>
           </div>
           <Link
-            to="/admin/buses/new"
-            className="px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition flex items-center space-x-2 shadow-lg"
+            to="/plus/buses/new"
+            className="px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition flex items-center justify-center space-x-2 shadow-lg"
           >
             <FaPlus />
             <span>Add New Bus</span>
@@ -107,7 +107,7 @@ const BusManagement: React.FC = () => {
             <h3 className="text-xl font-semibold text-gray-700 mb-2">No Buses Added Yet</h3>
             <p className="text-gray-500 mb-6">Get started by adding your first bus to the fleet</p>
             <Link
-              to="/admin/buses/new"
+              to="/plus/buses/new"
               className="inline-flex items-center px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition"
             >
               <FaPlus className="mr-2" />
@@ -180,14 +180,14 @@ const BusManagement: React.FC = () => {
                 <div className="bg-gray-50 px-5 py-3 flex items-center justify-between border-t">
                   <div className="flex items-center space-x-3">
                     <Link
-                      to={`/admin/buses/${bus.id}/seats`}
+                      to={`/plus/buses/${bus.id}/seats`}
                       className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center space-x-1"
                     >
                       <FaChair />
                       <span>Seat Layout</span>
                     </Link>
                     <Link
-                      to={`/admin/buses/${bus.id}/images`}
+                      to={`/plus/buses/${bus.id}/images`}
                       className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center space-x-1"
                     >
                       <FaImage />
@@ -197,7 +197,7 @@ const BusManagement: React.FC = () => {
 
                   <div className="flex items-center space-x-2">
                     <Link
-                      to={`/admin/buses/${bus.id}/edit`}
+                      to={`/plus/buses/${bus.id}/edit`}
                       className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition"
                       title="Edit Bus"
                     >

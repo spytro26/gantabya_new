@@ -24,11 +24,11 @@ export default function AdminVerificationPending() {
       
       // If admin is verified, redirect to dashboard
       if (response.data.admin.adminVerified) {
-        navigate("/admin/dashboard");
+        navigate("/plus/dashboard");
       }
     } catch (err: any) {
       if (err.response?.status === 401) {
-        navigate("/admin/signin");
+        navigate("/plus/signin");
       }
     } finally {
       setLoading(false);
@@ -60,7 +60,7 @@ export default function AdminVerificationPending() {
 
         {/* Message */}
         <div className="bg-slate-800 rounded-2xl shadow-2xl p-12 border border-slate-700">
-          <h1 className="text-3xl font-bold text-white mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-6">
             Wait for your verification to complete
           </h1>
           

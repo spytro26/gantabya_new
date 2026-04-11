@@ -65,7 +65,7 @@ const AdminSignup: React.FC = () => {
       setSuccess(response.data.message);
       // Navigate to email verification page
       setTimeout(() => {
-        navigate('/admin/verify-email', { state: { email: formData.email } });
+        navigate('/plus/verify-email', { state: { email: formData.email } });
       }, 1500);
     } catch (err: any) {
       console.error("Admin signup error:", err);
@@ -93,7 +93,7 @@ const AdminSignup: React.FC = () => {
               </div>
             </div>
           </div>
-          <h2 className="text-4xl font-extrabold text-white mb-2">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-2">
             Admin Portal
           </h2>
           <p className="text-gray-400 text-lg">Create Your Admin Account</p>
@@ -234,7 +234,7 @@ const AdminSignup: React.FC = () => {
             <div className="text-sm">
               <span className="text-gray-400">Already have an account? </span>
               <Link
-                to="/admin/signin"
+                to="/plus/signin"
                 className="font-medium text-yellow-400 hover:text-yellow-300 transition"
               >
                 Sign In

@@ -84,7 +84,7 @@ const BusForm: React.FC = () => {
         setSuccess('Bus created successfully!');
         const newBusId = response.data.bus.id;
         setTimeout(() => {
-          navigate(`/admin/buses/${newBusId}/seats`);
+          navigate(`/plus/buses/${newBusId}/seats`);
         }, 1500);
       }
     } catch (err: any) {
@@ -111,7 +111,7 @@ const BusForm: React.FC = () => {
         </div>
 
         {/* Form Card */}
-        <div className="bg-white rounded-xl shadow-md p-8">
+        <div className="bg-white rounded-xl shadow-md p-4 sm:p-8">
           {error && (
             <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
               {error}
@@ -198,7 +198,7 @@ const BusForm: React.FC = () => {
             </div>
 
             {/* Grid Dimensions */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Grid Rows (Bus Length)
@@ -245,7 +245,7 @@ const BusForm: React.FC = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center space-x-4 pt-4">
+            <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <button
                 type="submit"
                 disabled={loading}
@@ -256,8 +256,8 @@ const BusForm: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/admin/buses')}
-                className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition flex items-center space-x-2"
+                onClick={() => navigate('/plus/buses')}
+                className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition flex items-center justify-center space-x-2"
               >
                 <FaTimes />
                 <span>Cancel</span>

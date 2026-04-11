@@ -201,16 +201,16 @@ const AdminBusImages: React.FC = () => {
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => navigate('/admin/buses')}
+              onClick={() => navigate('/plus/buses')}
               className="p-2 hover:bg-gray-100 rounded-lg transition"
             >
               <FaArrowLeft className="text-gray-600" />
             </button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">Bus Images</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Bus Images</h1>
               {bus && (
                 <p className="text-gray-600 mt-1">
                   {bus.name} ({bus.busNumber})

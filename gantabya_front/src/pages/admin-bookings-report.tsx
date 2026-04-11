@@ -18,6 +18,7 @@ import DualDatePicker from '../components/DualDatePicker';
 import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
 import { getDualDateDisplay } from '../utils/nepaliDateConverter';
+import { getTodayIST } from '../utils/currency';
 
 interface SeatInfo {
   seatNumber: string;
@@ -94,11 +95,7 @@ interface ReportData {
 }
 
 const AdminBookingsReport: React.FC = () => {
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    // Default to today's date
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayIST());
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -171,7 +168,7 @@ const AdminBookingsReport: React.FC = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Booking Report</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Booking Report</h1>
             <p className="text-gray-600 mt-1">View date-wise booking details and analytics</p>
           </div>
         </div>

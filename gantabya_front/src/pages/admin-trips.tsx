@@ -63,7 +63,7 @@ const TripManagement: React.FC = () => {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 flex items-center space-x-3">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center space-x-3">
             <FaCalendarAlt className="text-purple-600" />
             <span>Trip Management</span>
           </h1>
@@ -91,7 +91,7 @@ const TripManagement: React.FC = () => {
                 <p className="text-sm mt-3">🚫 <strong>Want to mark days when bus doesn't run?</strong></p>
                 <p className="text-sm ml-4">Use the <strong>Holiday Management</strong> page to add exceptions (festivals, maintenance, etc.)</p>
                 <button
-                  onClick={() => navigate('/admin/holidays')}
+                  onClick={() => navigate('/plus/holidays')}
                   className="mt-4 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center space-x-2 font-semibold"
                 >
                   <FaCalendarTimes />
@@ -141,7 +141,7 @@ const TripManagement: React.FC = () => {
                 {trips.map((trip) => (
                   <div
                     key={trip.id}
-                    className="flex justify-between items-center p-4 border-2 border-gray-200 rounded-lg hover:border-purple-300 transition"
+                    className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 p-4 border-2 border-gray-200 rounded-lg hover:border-purple-300 transition"
                   >
                     <div>
                       <p className="font-semibold text-gray-800">

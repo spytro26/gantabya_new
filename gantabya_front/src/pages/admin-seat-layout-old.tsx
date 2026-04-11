@@ -197,7 +197,7 @@ const SeatLayoutDesigner: React.FC = () => {
 
       setSuccess('Seat layout saved successfully!');
       setTimeout(() => {
-        navigate('/admin/buses');
+        navigate('/plus/buses');
       }, 2000);
     } catch (err: any) {
       setError(err.response?.data?.errorMessage || 'Failed to save layout');
@@ -378,7 +378,7 @@ const SeatLayoutDesigner: React.FC = () => {
         {/* Save Button */}
         <div className="flex justify-end space-x-4">
           <button
-            onClick={() => navigate('/admin/buses')}
+            onClick={() => navigate('/plus/buses')}
             className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
           >
             Cancel

@@ -13,7 +13,6 @@ import {
 import AdminLayout from '../components/AdminLayout';
 import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
-import { getDualDate } from '../utils/nepaliDateConverter';
 
 interface DashboardData {
   serviceProfile: {
@@ -27,6 +26,8 @@ interface DashboardData {
     totalBookings: number;
     confirmedBookings: number;
     totalRevenue: number;
+    codRevenueNPR: number;
+    onlineRevenue: number;
   };
   busStatistics: Array<{
     busId: string;
@@ -146,21 +147,21 @@ const AdminDashboard: React.FC = () => {
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Dashboard</h1>
             <p className="text-gray-600 mt-1">Overview of your bus operations</p>
           </div>
           <div className="flex space-x-3">
             <Link
-              to="/admin/buses/new"
+              to="/plus/buses/new"
               className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition flex items-center space-x-2"
             >
               <FaBus />
               <span>Add Bus</span>
             </Link>
             <Link
-              to="/admin/trips/new"
+              to="/plus/trips/new"
               className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition flex items-center space-x-2"
             >
               <FaCalendarPlus />
@@ -231,7 +232,7 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
             <Link
-              to="/admin/buses"
+              to="/plus/buses"
               className="mt-4 inline-flex items-center text-sm text-blue-100 hover:text-white transition"
             >
               View all <FaArrowRight className="ml-2" />
@@ -251,7 +252,7 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
             <Link
-              to="/admin/trips"
+              to="/plus/trips"
               className="mt-4 inline-flex items-center text-sm text-green-100 hover:text-white transition"
             >
               View all <FaArrowRight className="ml-2" />
@@ -289,12 +290,48 @@ const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Revenue Breakdown */}
+        {/* Revenue Breakdown */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* COD Revenue (NPR) */}
+          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">COD Revenue (NPR)</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">
+                  NPR {(overview.codRevenueNPR || 0).toLocaleString('en-IN')}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Cash collected via offline bookings</p>
+              </div>
+              <div className="bg-orange-100 p-3 rounded-full">
+                <FaRupeeSign className="text-xl text-orange-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Online / Platform Revenue */}
+          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-indigo-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Platform / Online Revenue</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">
+                  NPR {(overview.onlineRevenue || 0).toLocaleString('en-IN')}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">Razorpay & eSewa payments</p>
+              </div>
+              <div className="bg-indigo-100 p-3 rounded-full">
+                <FaChartLine className="text-xl text-indigo-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Quick Actions */}
         <div className="bg-white rounded-xl shadow-md p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Link
-              to="/admin/buses/new"
+              to="/plus/buses/new"
               className="flex items-center space-x-3 p-4 border-2 border-blue-200 rounded-lg hover:bg-blue-50 hover:border-blue-400 transition"
             >
               <FaBus className="text-2xl text-blue-600" />
@@ -305,7 +342,7 @@ const AdminDashboard: React.FC = () => {
             </Link>
 
             <Link
-              to="/admin/routes"
+              to="/plus/routes"
               className="flex items-center space-x-3 p-4 border-2 border-green-200 rounded-lg hover:bg-green-50 hover:border-green-400 transition"
             >
               <FaRoute className="text-2xl text-green-600" />
@@ -316,7 +353,7 @@ const AdminDashboard: React.FC = () => {
             </Link>
 
             <Link
-              to="/admin/trips/new"
+              to="/plus/trips/new"
               className="flex items-center space-x-3 p-4 border-2 border-purple-200 rounded-lg hover:bg-purple-50 hover:border-purple-400 transition"
             >
               <FaCalendarPlus className="text-2xl text-purple-600" />
@@ -327,7 +364,7 @@ const AdminDashboard: React.FC = () => {
             </Link>
 
             <Link
-              to="/admin/offers"
+              to="/plus/offers"
               className="flex items-center space-x-3 p-4 border-2 border-yellow-200 rounded-lg hover:bg-yellow-50 hover:border-yellow-400 transition"
             >
               <FaTags className="text-2xl text-yellow-600" />
@@ -403,7 +440,7 @@ const AdminDashboard: React.FC = () => {
                       <td className="px-4 py-3 text-sm text-gray-700">{booking.bus}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{booking.route}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">
-                        {getDualDate(booking.tripDate)}
+                        {new Date(booking.tripDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </td>
                       <td className="px-4 py-3 text-gray-700 font-semibold">
                         ₹{booking.amount.toLocaleString('en-IN')}
@@ -434,7 +471,7 @@ const AdminDashboard: React.FC = () => {
             <h3 className="text-xl font-semibold text-gray-700 mb-2">No Buses Yet</h3>
             <p className="text-gray-500 mb-6">Get started by adding your first bus</p>
             <Link
-              to="/admin/buses/new"
+              to="/plus/buses/new"
               className="inline-flex items-center px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition"
             >
               <FaBus className="mr-2" />

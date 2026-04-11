@@ -2,19 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import api from '../lib/api';
-import { API_ENDPOINTS } from '../config';
 import { FaArrowLeft, FaChair, FaBed, FaChevronUp, FaChevronDown, FaUser, FaCheckCircle, FaDownload, FaEnvelope, FaPhone } from 'react-icons/fa';
 import { GiSteeringWheel } from 'react-icons/gi';
+import { roundToTwo } from '../utils/currency';
 
 interface Seat {
   id: string;
   seatNumber: string;
   row: number;
   column: number;
+  rowSpan?: number;
+  columnSpan?: number;
   level: 'LOWER' | 'UPPER';
   type: 'SEATER' | 'SLEEPER';
-  isBooked: boolean;
-  price: number;
+  isAvailable: boolean;
 }
 
 interface PassengerInfo {
@@ -27,6 +28,17 @@ interface PassengerInfo {
   email: string;
 }
 
+interface StopInfo {
+  id: string;
+  name: string;
+  city: string;
+  stopIndex: number;
+  lowerSeaterPrice: number;
+  lowerSleeperPrice: number;
+  upperSleeperPrice: number;
+  boardingPoints: Array<{ id: string; name: string; time: string; type: string; landmark: string }>;
+}
+
 interface BusInfo {
   bus: {
     name: string;
@@ -34,13 +46,13 @@ interface BusInfo {
     type: string;
   };
   route: {
-    fromStop: { name: string; stopIndex: number };
-    toStop: { name: string; stopIndex: number };
+    fromStop: StopInfo;
+    toStop: StopInfo;
     isReturnTrip: boolean;
+    boardingPoints: Array<{ id: string; name: string }>;
+    droppingPoints: Array<{ id: string; name: string }>;
   };
   seats: Seat[];
-  boardingPoints: Array<{ id: string; name: string }>;
-  droppingPoints: Array<{ id: string; name: string }>;
 }
 
 const AdminOfflineBookingSeats: React.FC = () => {
@@ -88,21 +100,35 @@ const AdminOfflineBookingSeats: React.FC = () => {
       setLoading(true);
       setError('');
 
-      const response = await api.get(`${API_ENDPOINTS.GET_TRIP_SEATS}/${tripId}/seats`, {
-        params: {
-          fromStopId: routeState.fromStopId,
-          toStopId: routeState.toStopId,
-          isReturnTrip: routeState.isReturnTrip || false,
-        },
-      });
+      const response = await api.get(
+        `/user/showbusinfo/${tripId}?fromStopId=${routeState.fromStopId}&toStopId=${routeState.toStopId}`
+      );
 
       if (response.data) {
-        setBusInfo(response.data);
-        if (response.data.boardingPoints?.length > 0) {
-          setSelectedBoardingPoint(response.data.boardingPoints[0].id);
+        // Flatten seats from lowerDeck + upperDeck and map isAvailable to match our interface
+        const allSeats: Seat[] = [
+          ...(response.data.seats?.lowerDeck || []),
+          ...(response.data.seats?.upperDeck || []),
+        ];
+
+        const info: BusInfo = {
+          bus: response.data.bus,
+          route: {
+            fromStop: response.data.route.fromStop,
+            toStop: response.data.route.toStop,
+            isReturnTrip: response.data.route.isReturnTrip,
+            boardingPoints: response.data.route.boardingPoints || [],
+            droppingPoints: response.data.route.droppingPoints || [],
+          },
+          seats: allSeats,
+        };
+
+        setBusInfo(info);
+        if (info.route.boardingPoints.length > 0) {
+          setSelectedBoardingPoint(info.route.boardingPoints[0].id);
         }
-        if (response.data.droppingPoints?.length > 0) {
-          setSelectedDroppingPoint(response.data.droppingPoints[0].id);
+        if (info.route.droppingPoints.length > 0) {
+          setSelectedDroppingPoint(info.route.droppingPoints[0].id);
         }
       }
     } catch (err: any) {
@@ -113,8 +139,21 @@ const AdminOfflineBookingSeats: React.FC = () => {
     }
   };
 
+  const getSeatPrice = (seat: Seat): number => {
+    if (!busInfo) return 0;
+    const { fromStop, toStop } = busInfo.route;
+    if (seat.level === 'LOWER' && seat.type === 'SEATER') {
+      return roundToTwo(Math.abs(toStop.lowerSeaterPrice - fromStop.lowerSeaterPrice));
+    } else if (seat.level === 'LOWER' && seat.type === 'SLEEPER') {
+      return roundToTwo(Math.abs(toStop.lowerSleeperPrice - fromStop.lowerSleeperPrice));
+    } else if (seat.level === 'UPPER' && seat.type === 'SLEEPER') {
+      return roundToTwo(Math.abs(toStop.upperSleeperPrice - fromStop.upperSleeperPrice));
+    }
+    return 0;
+  };
+
   const handleSeatClick = (seat: Seat) => {
-    if (seat.isBooked) return;
+    if (!seat.isAvailable) return;
 
     setSelectedSeats((prev) => {
       const isSelected = prev.includes(seat.id);
@@ -164,7 +203,7 @@ const AdminOfflineBookingSeats: React.FC = () => {
       setBookingLoading(true);
       setError('');
 
-      const response = await api.post(API_ENDPOINTS.ADMIN_OFFLINE_BOOKING, {
+      const response = await api.post('/admin/booking/offline', {
         tripId,
         fromStopId: routeState.fromStopId,
         toStopId: routeState.toStopId,
@@ -182,6 +221,8 @@ const AdminOfflineBookingSeats: React.FC = () => {
         adminNotes,
         customerPhone: customerPhone || undefined,
         customerEmail: customerEmail || undefined,
+        codAmount: totalPrice,
+        codCurrency: 'NPR',
       });
 
       if (response.data) {
@@ -223,7 +264,7 @@ const AdminOfflineBookingSeats: React.FC = () => {
   };
 
   const getSeatColor = (seat: Seat) => {
-    if (seat.isBooked) return 'bg-gray-300 cursor-not-allowed';
+    if (!seat.isAvailable) return 'bg-gray-300 cursor-not-allowed';
     if (selectedSeats.includes(seat.id)) return 'bg-blue-600 text-white';
     return 'bg-white border-2 border-gray-300 hover:border-blue-500 cursor-pointer';
   };
@@ -234,7 +275,8 @@ const AdminOfflineBookingSeats: React.FC = () => {
 
   const totalPrice = selectedSeats.reduce((sum, seatId) => {
     const seat = busInfo?.seats.find((s) => s.id === seatId);
-    return sum + (seat?.price || 0);
+    if (!seat) return sum;
+    return roundToTwo(sum + getSeatPrice(seat));
   }, 0);
 
   if (loading) {
@@ -254,7 +296,7 @@ const AdminOfflineBookingSeats: React.FC = () => {
         <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
           <p className="text-red-700">{error || 'Failed to load seat information'}</p>
           <button
-            onClick={() => navigate('/admin/offline-booking')}
+            onClick={() => navigate('/plus/offline-booking')}
             className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
           >
             Go Back
@@ -333,15 +375,15 @@ const AdminOfflineBookingSeats: React.FC = () => {
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <button
-            onClick={() => navigate('/admin/offline-booking')}
+            onClick={() => navigate('/plus/offline-booking')}
             className="flex items-center text-blue-600 hover:text-blue-700 mb-4"
           >
             <FaArrowLeft className="mr-2" />
             Back to Trips
           </button>
-          <h1 className="text-2xl font-bold text-gray-800">{busInfo.bus.name}</h1>
-          <p className="text-gray-600">
-            {busInfo.bus.busNumber} • {busInfo.route.fromStop.name} → {busInfo.route.toStop.name}
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">{busInfo.bus.name}</h1>
+          <p className="text-gray-600 text-sm sm:text-base break-words">
+            {busInfo.bus.busNumber} • {busInfo.route.fromStop.name} ({busInfo.route.fromStop.city}) → {busInfo.route.toStop.name} ({busInfo.route.toStop.city})
           </p>
         </div>
 
@@ -439,7 +481,7 @@ const AdminOfflineBookingSeats: React.FC = () => {
                         <button
                           key={seat.id}
                           onClick={() => handleSeatClick(seat)}
-                          disabled={seat.isBooked}
+                          disabled={!seat.isAvailable}
                           className={`h-16 rounded-lg flex flex-col items-center justify-center text-sm font-semibold transition ${getSeatColor(seat)}`}
                         >
                           <span className="text-lg">{getSeatIcon(seat)}</span>
@@ -484,7 +526,7 @@ const AdminOfflineBookingSeats: React.FC = () => {
                   onChange={(e) => setSelectedBoardingPoint(e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
                 >
-                  {busInfo.boardingPoints.map((point) => (
+                  {busInfo.route.boardingPoints.map((point) => (
                     <option key={point.id} value={point.id}>
                       {point.name}
                     </option>
@@ -502,7 +544,7 @@ const AdminOfflineBookingSeats: React.FC = () => {
                   onChange={(e) => setSelectedDroppingPoint(e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
                 >
-                  {busInfo.droppingPoints.map((point) => (
+                  {busInfo.route.droppingPoints.map((point) => (
                     <option key={point.id} value={point.id}>
                       {point.name}
                     </option>
@@ -512,14 +554,25 @@ const AdminOfflineBookingSeats: React.FC = () => {
 
               {/* Selected Seats */}
               <div className="mb-4">
-                <p className="text-sm text-gray-600">Selected Seats</p>
-                <p className="font-semibold">
-                  {selectedSeats.length > 0
-                    ? selectedSeats
-                        .map((id) => busInfo.seats.find((s) => s.id === id)?.seatNumber)
-                        .join(', ')
-                    : 'None'}
-                </p>
+                <p className="text-sm text-gray-600 mb-1">Selected Seats</p>
+                {selectedSeats.length > 0 ? (
+                  <div className="space-y-1">
+                    {selectedSeats.map((id) => {
+                      const seat = busInfo.seats.find((s) => s.id === id);
+                      if (!seat) return null;
+                      return (
+                        <div key={id} className="flex justify-between text-sm">
+                          <span className="font-semibold">
+                            {seat.seatNumber} <span className="text-xs text-gray-500">({seat.level} {seat.type})</span>
+                          </span>
+                          <span className="text-green-700 font-medium">NPR {getSeatPrice(seat)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="font-semibold">None</p>
+                )}
               </div>
 
               {/* CUSTOMER CONTACT - LOCATION 2: SIDEBAR (ALWAYS VISIBLE) */}
@@ -617,8 +670,8 @@ const AdminOfflineBookingSeats: React.FC = () => {
                       <span className="font-semibold">Seat {passenger.seatNumber}</span>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                      <div className="col-span-2 md:col-span-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+                      <div className="sm:col-span-2 md:col-span-1">
                         <label className="block text-xs text-gray-600 mb-1">
                           Name <span className="text-red-500">*</span>
                         </label>

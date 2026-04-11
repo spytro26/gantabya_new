@@ -186,7 +186,7 @@ export const OfferManagementView: React.FC<OfferManagementViewProps> = ({
       <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className={`text-3xl font-bold flex items-center space-x-3 ${isDarkTheme ? 'text-white' : 'text-gray-800'}`}>
+            <h1 className={`text-2xl sm:text-3xl font-bold flex items-center space-x-3 ${isDarkTheme ? 'text-white' : 'text-gray-800'}`}>
               <FaTags className={isDarkTheme ? 'text-red-500' : 'text-yellow-600'} />
               <span>{title}</span>
             </h1>

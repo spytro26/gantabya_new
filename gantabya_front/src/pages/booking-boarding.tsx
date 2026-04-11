@@ -46,7 +46,7 @@ export function BookingBoardingPage({ isAdmin = false }: { isAdmin?: boolean }) 
 
   useEffect(() => {
     if (!tripId || !selectedSeats.length || !fromStopId || !toStopId) {
-      navigate(isAdmin ? `/admin/offline-booking/${tripId ?? ''}` : `/book/${tripId ?? ''}`, { replace: true });
+      navigate(isAdmin ? `/plus/offline-booking/${tripId ?? ''}` : `/book/${tripId ?? ''}`, { replace: true });
       return;
     }
 
@@ -154,7 +154,7 @@ export function BookingBoardingPage({ isAdmin = false }: { isAdmin?: boolean }) 
       return;
     }
 
-    const nextPath = isAdmin ? `/admin/offline-booking/${tripId}/passengers` : `/book/${tripId}/passengers`;
+    const nextPath = isAdmin ? `/plus/offline-booking/${tripId}/passengers` : `/book/${tripId}/passengers`;
     navigate(nextPath, {
       state: {
         selectedSeats,
@@ -169,7 +169,7 @@ export function BookingBoardingPage({ isAdmin = false }: { isAdmin?: boolean }) 
   };
 
   const handleBackToSeats = () => {
-    const prevPath = isAdmin ? `/admin/offline-booking/${tripId}` : `/book/${tripId}`;
+    const prevPath = isAdmin ? `/plus/offline-booking/${tripId}` : `/book/${tripId}`;
     navigate(prevPath, {
       state: {
         selectedSeats,
@@ -207,7 +207,7 @@ export function BookingBoardingPage({ isAdmin = false }: { isAdmin?: boolean }) 
             <h2 className="text-lg font-semibold text-gray-900">Oops!</h2>
             <p className="mt-2 text-sm text-gray-600">{error || 'Trip information unavailable.'}</p>
             <button
-              onClick={() => navigate(isAdmin ? `/admin/offline-booking/${tripId}` : `/book/${tripId}`)}
+              onClick={() => navigate(isAdmin ? `/plus/offline-booking/${tripId}` : `/book/${tripId}`)}
               className="mt-4 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700"
             >
               <FaArrowLeft />

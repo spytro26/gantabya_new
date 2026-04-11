@@ -59,27 +59,27 @@ function App() {
         <Route path="/payment/esewa/failure/:paymentId" element={<EsewaFailurePage />} />
         
         {/* Admin Routes */}
-        <Route path="/admin/signup" element={<AdminSignup />} />
-        <Route path="/admin/signin" element={<AdminSignin />} />
-        <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
-        <Route path="/admin/verify-email" element={<AdminVerifyEmail />} />
-        <Route path="/admin/verification-pending" element={<AdminVerificationPending />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/buses" element={<BusManagement />} />
-        <Route path="/admin/buses/:busId" element={<BusForm />} />
-        <Route path="/admin/buses/:busId/edit" element={<BusForm />} />
-        <Route path="/admin/buses/:busId/seats" element={<SeatLayoutDesigner />} />
-        <Route path="/admin/buses/:busId/images" element={<AdminBusImages />} />
-        <Route path="/admin/routes" element={<RouteManagement />} />
-        <Route path="/admin/trips" element={<TripManagement />} />
-        <Route path="/admin/holidays" element={<HolidayManagement />} />
-        <Route path="/admin/offers" element={<OfferManagement />} />
-        <Route path="/admin/amenities" element={<AmenityManagement />} />
-        <Route path="/admin/bookings-report" element={<AdminBookingsReport />} />
-        <Route path="/admin/offline-booking" element={<AdminOfflineBooking />} />
-        <Route path="/admin/offline-booking/:tripId" element={<BookingPage isAdmin={true} />} />
-        <Route path="/admin/offline-booking/:tripId/boarding" element={<BookingBoardingPage isAdmin={true} />} />
-        <Route path="/admin/offline-booking/:tripId/passengers" element={<BookingPassengerPage isAdmin={true} />} />
+        <Route path="/plus/signup" element={<AdminSignup />} />
+        <Route path="/plus/signin" element={<AdminSignin />} />
+        <Route path="/plus/forgot-password" element={<AdminForgotPassword />} />
+        <Route path="/plus/verify-email" element={<AdminVerifyEmail />} />
+        <Route path="/plus/verification-pending" element={<AdminVerificationPending />} />
+        <Route path="/plus/dashboard" element={<AdminDashboard />} />
+        <Route path="/plus/buses" element={<BusManagement />} />
+        <Route path="/plus/buses/:busId" element={<BusForm />} />
+        <Route path="/plus/buses/:busId/edit" element={<BusForm />} />
+        <Route path="/plus/buses/:busId/seats" element={<SeatLayoutDesigner />} />
+        <Route path="/plus/buses/:busId/images" element={<AdminBusImages />} />
+        <Route path="/plus/routes" element={<RouteManagement />} />
+        <Route path="/plus/trips" element={<TripManagement />} />
+        <Route path="/plus/holidays" element={<HolidayManagement />} />
+        <Route path="/plus/offers" element={<OfferManagement />} />
+        <Route path="/plus/amenities" element={<AmenityManagement />} />
+        <Route path="/plus/bookings-report" element={<AdminBookingsReport />} />
+        <Route path="/plus/offline-booking" element={<AdminOfflineBooking />} />
+        <Route path="/plus/offline-booking/:tripId" element={<BookingPage isAdmin={true} />} />
+        <Route path="/plus/offline-booking/:tripId/boarding" element={<BookingBoardingPage isAdmin={true} />} />
+        <Route path="/plus/offline-booking/:tripId/passengers" element={<BookingPassengerPage isAdmin={true} />} />
 
         {/* Super Admin Routes */}
         <Route path="/superadmin" element={<SuperAdminSignin />} />

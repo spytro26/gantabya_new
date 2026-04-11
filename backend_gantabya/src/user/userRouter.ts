@@ -220,14 +220,13 @@ const prepareBookingDetails = async (
     throw new Error("Trip is not available for booking");
   }
 
-  const now = new Date();
+  // Use IST (Asia/Kolkata) for date comparison
+  const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  const todayIST = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate());
   const tripDate = new Date(trip.tripDate);
-  tripDate.setHours(0, 0, 0, 0);
+  const tripDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate());
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  if (tripDate < today) {
+  if (tripDay < todayIST) {
     throw new Error("Cannot book tickets for past dates");
   }
 
@@ -244,7 +243,7 @@ const prepareBookingDetails = async (
 
   const isReturnTrip = fromStop.stopIndex > toStop.stopIndex;
 
-  if (tripDate.getTime() === today.getTime()) {
+  if (tripDay.getTime() === todayIST.getTime()) {
     const departureTime = isReturnTrip
       ? fromStop.returnDepartureTime || fromStop.departureTime
       : fromStop.departureTime;
@@ -258,10 +257,10 @@ const prepareBookingDetails = async (
         // 30-minute cutoff rule
         const cutoffTime = new Date(departureDateTime.getTime() - 30 * 60000);
 
-        if (now > cutoffTime) {
+        if (nowIST > cutoffTime) {
           // If now is past the cutoff (e.g. 15:31 for 16:00 bus)
           // Check if it's actually departed or just booking closed
-          if (now > departureDateTime) {
+          if (nowIST > departureDateTime) {
             throw new Error(
               "Cannot book tickets for buses that have already departed"
             );
@@ -3183,17 +3182,28 @@ userRouter.get(
               time: bookingGroup.droppingPoint.time,
             }
           : null,
-        seats: bookingGroup.bookings.map((booking) => ({
-          seatNumber: booking.seat.seatNumber,
-          seatLevel: booking.seat.level,
-          seatType: booking.seat.type,
-          fare: 0, // Calculate if needed from stop prices
-          passenger: {
-            name: booking.passenger?.name || "Passenger",
-            age: booking.passenger?.age || 0,
-            gender: booking.passenger?.gender || "MALE",
-          },
-        })),
+        seats: bookingGroup.bookings.map((booking) => {
+          const seat = booking.seat;
+          let fare = 0;
+          if (seat.level === 'LOWER' && seat.type === 'SEATER') {
+            fare = Math.abs(bookingGroup.toStop.lowerSeaterPrice - bookingGroup.fromStop.lowerSeaterPrice);
+          } else if (seat.level === 'LOWER' && seat.type === 'SLEEPER') {
+            fare = Math.abs(bookingGroup.toStop.lowerSleeperPrice - bookingGroup.fromStop.lowerSleeperPrice);
+          } else if (seat.level === 'UPPER' && seat.type === 'SLEEPER') {
+            fare = Math.abs(bookingGroup.toStop.upperSleeperPrice - bookingGroup.fromStop.upperSleeperPrice);
+          }
+          return {
+            seatNumber: seat.seatNumber,
+            seatLevel: seat.level,
+            seatType: seat.type,
+            fare,
+            passenger: {
+              name: booking.passenger?.name || "Passenger",
+              age: booking.passenger?.age || 0,
+              gender: booking.passenger?.gender || "MALE",
+            },
+          };
+        }),
         pricing: {
           totalPrice: bookingGroup.totalPrice,
           discountAmount: bookingGroup.discountAmount || 0,

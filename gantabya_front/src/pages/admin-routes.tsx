@@ -346,15 +346,15 @@ const RouteManagement: React.FC = () => {
       if (i > 0) {
         // Each stop's prices must be >= previous stop's prices (cumulative)
         if (stop.lowerSeaterPrice < normalizedStops[i - 1].lowerSeaterPrice) {
-          setError(`Stop ${i + 1}: Lower Seater price (₹${stop.lowerSeaterPrice}) must be >= previous stop's price (₹${normalizedStops[i - 1].lowerSeaterPrice})`);
+          setError(`Stop ${i + 1}: Lower Seater price (NPR ${stop.lowerSeaterPrice}) must be >= previous stop's price (NPR ${normalizedStops[i - 1].lowerSeaterPrice})`);
           return;
         }
         if (stop.lowerSleeperPrice < normalizedStops[i - 1].lowerSleeperPrice) {
-          setError(`Stop ${i + 1}: Lower Sleeper price (₹${stop.lowerSleeperPrice}) must be >= previous stop's price (₹${normalizedStops[i - 1].lowerSleeperPrice})`);
+          setError(`Stop ${i + 1}: Lower Sleeper price (NPR ${stop.lowerSleeperPrice}) must be >= previous stop's price (NPR ${normalizedStops[i - 1].lowerSleeperPrice})`);
           return;
         }
         if (stop.upperSleeperPrice < normalizedStops[i - 1].upperSleeperPrice) {
-          setError(`Stop ${i + 1}: Upper Sleeper price (₹${stop.upperSleeperPrice}) must be >= previous stop's price (₹${normalizedStops[i - 1].upperSleeperPrice})`);
+          setError(`Stop ${i + 1}: Upper Sleeper price (NPR ${stop.upperSleeperPrice}) must be >= previous stop's price (NPR ${normalizedStops[i - 1].upperSleeperPrice})`);
           return;
         }
         if (stop.distanceFromOrigin <= normalizedStops[i - 1].distanceFromOrigin) {
@@ -406,7 +406,7 @@ const RouteManagement: React.FC = () => {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 flex items-center space-x-3">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center space-x-3">
             <FaRoute className="text-green-600" />
             <span>Route & Pricing Management</span>
           </h1>
@@ -443,9 +443,9 @@ const RouteManagement: React.FC = () => {
               <ul className="list-disc list-inside space-y-1">
                 <li>Enter <strong>3 cumulative prices from origin</strong> for each stop (Lower Seater, Lower Sleeper, Upper Sleeper)</li>
                 <li>System automatically calculates fare for ANY two stops based on seat type</li>
-                <li>Example: Stop A (₹0/₹0/₹0) → Stop B (₹500/₹700/₹650) → Stop C (₹1200/₹1500/₹1300)</li>
-                <li>User booking Lower Seater B to C pays: ₹1200 - ₹500 = <strong>₹700</strong></li>
-                <li>User booking Upper Sleeper B to C pays: ₹1300 - ₹650 = <strong>₹650</strong></li>
+                <li>Example: Stop A (NPR 0/0/0) → Stop B (NPR 500/700/650) → Stop C (NPR 1200/1500/1300)</li>
+                <li>User booking Lower Seater B to C pays: NPR 1200 - 500 = <strong>NPR 700</strong></li>
+                <li>User booking Upper Sleeper B to C pays: NPR 1300 - 650 = <strong>NPR 650</strong></li>
               </ul>
             </div>
           </div>
@@ -782,12 +782,12 @@ const RouteManagement: React.FC = () => {
                     💺 Cumulative Pricing by Seat Type <span className="text-red-500">*</span>
                   </h4>
                   <p className="text-xs text-gray-600 mb-3">
-                    Enter cumulative prices from origin for each seat type. System calculates point-to-point fares automatically.
+                    Enter cumulative prices (in NPR) from origin for each seat type. System calculates point-to-point fares automatically.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-blue-700 mb-1">
-                        Lower Seater (₹) <span className="text-red-500">*</span>
+                        Lower Seater (NPR) <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="number"
@@ -798,7 +798,7 @@ const RouteManagement: React.FC = () => {
                             ? 'border-blue-200 bg-blue-50 text-gray-500 cursor-not-allowed'
                             : 'border-blue-300 bg-blue-50'
                         }`}
-                        placeholder={index === 0 ? 'Origin auto-set to ₹0' : 'e.g., 500'}
+                        placeholder={index === 0 ? 'Origin auto-set to NPR 0' : 'e.g., 500'}
                         min="0"
                         step="0.01"
                         disabled={index === 0}
@@ -807,7 +807,7 @@ const RouteManagement: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-purple-700 mb-1">
-                        Lower Sleeper (₹) <span className="text-red-500">*</span>
+                        Lower Sleeper (NPR) <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="number"
@@ -818,7 +818,7 @@ const RouteManagement: React.FC = () => {
                             ? 'border-purple-200 bg-purple-50 text-gray-500 cursor-not-allowed'
                             : 'border-purple-300 bg-purple-50'
                         }`}
-                        placeholder={index === 0 ? 'Origin auto-set to ₹0' : 'e.g., 700'}
+                        placeholder={index === 0 ? 'Origin auto-set to NPR 0' : 'e.g., 700'}
                         min="0"
                         step="0.01"
                         disabled={index === 0}
@@ -827,7 +827,7 @@ const RouteManagement: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-orange-700 mb-1">
-                        Upper Sleeper (₹) <span className="text-red-500">*</span>
+                        Upper Sleeper (NPR) <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="number"
@@ -838,7 +838,7 @@ const RouteManagement: React.FC = () => {
                             ? 'border-orange-200 bg-orange-50 text-gray-500 cursor-not-allowed'
                             : 'border-orange-300 bg-orange-50'
                         }`}
-                        placeholder={index === 0 ? 'Origin auto-set to ₹0' : 'e.g., 650'}
+                        placeholder={index === 0 ? 'Origin auto-set to NPR 0' : 'e.g., 650'}
                         min="0"
                         step="0.01"
                         disabled={index === 0}

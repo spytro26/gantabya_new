@@ -114,7 +114,7 @@ const AmenityManagement: React.FC = () => {
     <AdminLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 flex items-center space-x-3">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center space-x-3">
             <FaWifi className="text-blue-600" />
             <span>Amenities Management</span>
           </h1>

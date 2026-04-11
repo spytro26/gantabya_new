@@ -108,7 +108,7 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
 
   useEffect(() => {
     if (!tripId) {
-      navigate(isAdmin ? '/admin/offline-booking' : '/home');
+      navigate(isAdmin ? '/plus/offline-booking' : '/home');
       return;
     }
     fetchUnreadCount();
@@ -353,6 +353,8 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
           adminNotes: 'Booked via admin offline booking',
           customerEmail: customerEmail || undefined,
           customerPhone: customerPhone || undefined,
+          codAmount: getTotalAmount(),
+          codCurrency: 'NPR',
         });
 
         const emailSent = response.data?.emailSent;
@@ -361,7 +363,7 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
         } else {
           alert('Booking confirmed successfully!');
         }
-        navigate('/admin/offline-booking');
+        navigate('/plus/offline-booking');
         return;
       }
 
@@ -628,7 +630,7 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
       return;
     }
 
-    const nextPath = isAdmin ? `/admin/offline-booking/${tripId}/boarding` : `/book/${tripId}/boarding`;
+    const nextPath = isAdmin ? `/plus/offline-booking/${tripId}/boarding` : `/book/${tripId}/boarding`;
     navigate(nextPath, {
       state: {
         selectedSeats,
@@ -984,7 +986,7 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
         <div className="bg-red-50 border border-red-200 rounded-lg p-8 max-w-md">
           <p className="text-red-700 text-lg mb-4">{error || 'Bus information not available'}</p>
           <button
-            onClick={() => navigate(isAdmin ? '/admin/offline-booking' : '/home')}
+            onClick={() => navigate(isAdmin ? '/plus/offline-booking' : '/home')}
             className="text-indigo-600 hover:text-indigo-700 font-medium"
           >
             ← Go back to search

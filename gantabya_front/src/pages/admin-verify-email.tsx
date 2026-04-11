@@ -27,7 +27,7 @@ export default function AdminVerifyEmail() {
       if (response.status === 200) {
         // Email verified, now admin needs super admin approval
         alert("Email verified successfully! Your account is now pending super admin approval.");
-        navigate("/admin/signin");
+        navigate("/plus/signin");
       }
     } catch (err: any) {
       setError(err.response?.data?.errorMessage || "Failed to verify OTP");
@@ -52,7 +52,7 @@ export default function AdminVerifyEmail() {
             <div className="bg-yellow-500 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
               <FaEnvelope className="text-slate-900 text-2xl" />
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Verify Your Email</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Verify Your Email</h1>
             <p className="text-gray-400">
               We've sent a 6-digit OTP to
             </p>
@@ -120,7 +120,7 @@ export default function AdminVerifyEmail() {
           {/* Back to Signin */}
           <div className="mt-4 text-center">
             <button
-              onClick={() => navigate("/admin/signin")}
+              onClick={() => navigate("/plus/signin")}
               className="text-gray-400 hover:text-gray-300 text-sm"
             >
               Back to Sign In

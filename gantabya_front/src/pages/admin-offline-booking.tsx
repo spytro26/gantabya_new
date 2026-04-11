@@ -3,7 +3,7 @@ import { FaTicketAlt, FaInfoCircle, FaBus, FaCalendar, FaArrowRight, FaSpinner, 
 import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import api from '../lib/api';
-import { getDualDate } from '../utils/nepaliDateConverter';
+import { getTodayIST } from '../utils/currency';
 
 interface Stop {
   id: string;
@@ -25,9 +25,7 @@ interface Bus {
 
 const AdminOfflineBooking: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayIST());
   const [buses, setBuses] = useState<Bus[]>([]);
   const [selectedBus, setSelectedBus] = useState<Bus | null>(null);
   const [fromStopId, setFromStopId] = useState<string>('');
@@ -118,7 +116,7 @@ const AdminOfflineBooking: React.FC = () => {
       const tripId = response.data.tripId;
 
       // Navigate to seat selection with all necessary info
-      navigate(`/admin/offline-booking/${tripId}`, {
+      navigate(`/plus/offline-booking/${tripId}`, {
         state: {
           tripDate: selectedDate,
           fromStopId,
@@ -165,7 +163,7 @@ const AdminOfflineBooking: React.FC = () => {
           <div className="flex items-center space-x-3 mb-2">
             <FaTicketAlt className="text-3xl text-blue-600" />
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
                 Offline Booking
               </h1>
               <p className="text-gray-600 mt-1">
@@ -244,7 +242,7 @@ const AdminOfflineBooking: React.FC = () => {
               />
               {selectedDate && (
                 <p className="text-sm text-gray-600 mt-2">
-                  {getDualDate(new Date(selectedDate))}
+                  {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
               )}
             </div>

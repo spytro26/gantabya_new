@@ -2128,14 +2128,16 @@ adminRouter.get(
         },
       });
 
-      // Get upcoming trips
+      // Get upcoming trips (using IST for date comparison)
+      const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      const todayStartIST = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate());
       const upcomingTrips = await prisma.trip.count({
         where: {
           bus: {
             adminId,
           },
           tripDate: {
-            gte: new Date(),
+            gte: todayStartIST,
           },
           status: {
             in: ["SCHEDULED", "ONGOING"],
@@ -2166,25 +2168,44 @@ adminRouter.get(
         },
       });
 
-      // Calculate total revenue
-      const bookingGroups = await prisma.bookingGroup.findMany({
+      // Calculate revenue breakdown: COD (offline) vs Online (Razorpay/eSewa)
+      const confirmedPayments = await prisma.payment.findMany({
         where: {
-          trip: {
-            bus: {
-              adminId,
+          bookingGroup: {
+            trip: {
+              bus: {
+                adminId,
+              },
             },
+            status: "CONFIRMED",
           },
-          status: "CONFIRMED",
+          status: "SUCCESS",
         },
         select: {
-          totalPrice: true,
+          method: true,
+          chargedAmount: true,
+          chargedCurrency: true,
         },
       });
 
-      const totalRevenue = bookingGroups.reduce(
-        (sum, bg) => sum + bg.totalPrice,
-        0
-      );
+      let codRevenueNPR = 0;
+      let codRevenueINR = 0;
+      let onlineRevenue = 0;
+
+      for (const payment of confirmedPayments) {
+        if (payment.method === "COD") {
+          if (payment.chargedCurrency === "INR") {
+            codRevenueINR += payment.chargedAmount;
+          } else {
+            codRevenueNPR += payment.chargedAmount;
+          }
+        } else {
+          // RAZORPAY or ESEWA - online payments
+          onlineRevenue += payment.chargedAmount;
+        }
+      }
+
+      const totalRevenue = codRevenueNPR + codRevenueINR + onlineRevenue;
 
       // Get recent bookings
       const recentBookings = await prisma.bookingGroup.findMany({
@@ -2287,6 +2308,9 @@ adminRouter.get(
           totalBookings,
           confirmedBookings,
           totalRevenue,
+          codRevenueNPR,
+          codRevenueINR,
+          onlineRevenue,
         },
         busStatistics: busStats,
         recentBookings: recentBookings.map((booking) => ({
@@ -4057,6 +4081,8 @@ adminRouter.post(
         adminNotes,
         customerEmail,
         customerPhone,
+        codAmount,
+        codCurrency,
       } = req.body;
 
       if (!tripId || !fromStopId || !toStopId || !seatIds || !passengers) {
@@ -4084,6 +4110,15 @@ adminRouter.post(
           if (!trip) throw new Error("Trip not found");
           if (trip.bus.adminId !== adminId) throw new Error("Not authorized for this trip");
           if (trip.status === "CANCELLED" || trip.status === "COMPLETED") throw new Error("Trip is not active");
+
+          // Prevent booking for past trips (IST timezone)
+          const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+          const tripDate = new Date(trip.tripDate);
+          const todayIST = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate());
+          const tripDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate());
+          if (tripDay < todayIST) {
+            throw new Error("Cannot create booking for a past trip date");
+          }
 
           const fromStop = trip.bus.stops.find((s) => s.id === fromStopId);
           const toStop = trip.bus.stops.find((s) => s.id === toStopId);
@@ -4131,19 +4166,42 @@ adminRouter.post(
             throw new Error("One or more seats are already booked for this route segment");
           }
 
-          // Compute price. Since seatFares are derived from stops in a real scenario, we use lowerSeaterPrice for demo
-          // Wait, stops have cumulative prices. We can compute price per seat or just use a default.
-          // In the user flow, the frontend passes seatFares. The admin frontend currently doesn't pass seatFares.
-          // Let's query stops to compute price, or just set to 0. It's an offline booking, maybe they already paid.
-          const totalPrice = 0; 
-          // Admin offline frontend currently doesn't calculate price from route prices properly or pass 'seatFares'.
-          // Wait, admin-offline-booking-seats.tsx lines 132-135: 
-          // `return sum + (seat?.price || 0);` but `seat` in db doesn't have `price`!
-          // We'll set totalPrice to 0 or whatever.
+          // Calculate the actual seat prices based on stop pricing
+          const getSeatFare = (seat: any) => {
+            if (seat.level === 'LOWER' && seat.type === 'SEATER') {
+              return Math.abs(toStop.lowerSeaterPrice - fromStop.lowerSeaterPrice);
+            } else if (seat.level === 'LOWER' && seat.type === 'SLEEPER') {
+              return Math.abs(toStop.lowerSleeperPrice - fromStop.lowerSleeperPrice);
+            } else if (seat.level === 'UPPER' && seat.type === 'SLEEPER') {
+              return Math.abs(toStop.upperSleeperPrice - fromStop.upperSleeperPrice);
+            }
+            return 0;
+          };
+
+          const calculatedTotal = Math.round(
+            seats.reduce((sum: number, seat: any) => sum + getSeatFare(seat), 0) * 100
+          ) / 100;
+
+          // Use codAmount if explicitly provided, otherwise use calculated total
+          const collectedAmount = typeof codAmount === 'number' && codAmount >= 0 ? codAmount : calculatedTotal;
+          const collectedCurrency: 'NPR' = 'NPR';
+          const totalPrice = collectedAmount;
+
+          // Check if customer email matches an existing user on the platform
+          let bookingUserId = adminId;
+          if (customerEmail && customerEmail.trim()) {
+            const existingUser = await tx.user.findUnique({
+              where: { email: customerEmail.trim().toLowerCase() },
+              select: { id: true },
+            });
+            if (existingUser) {
+              bookingUserId = existingUser.id;
+            }
+          }
 
           const bookingGroup = await tx.bookingGroup.create({
             data: {
-              userId: adminId,
+              userId: bookingUserId,
               tripId,
               fromStopId,
               toStopId,
@@ -4187,16 +4245,16 @@ adminRouter.post(
 
           await tx.payment.create({
             data: {
-              userId: adminId,
+              userId: bookingUserId,
               bookingGroupId: bookingGroup.id,
               method: PaymentMethod.COD,
-              baseAmount: totalPrice,
-              baseCurrency: "NPR",
-              chargedAmount: totalPrice,
-              chargedCurrency: "NPR",
+              baseAmount: collectedAmount,
+              baseCurrency: collectedCurrency,
+              chargedAmount: collectedAmount,
+              chargedCurrency: collectedCurrency,
               status: PaymentStatus.SUCCESS,
               gatewayPaymentId: `OFFLINE-${Date.now()}`,
-              metadata: { adminNotes: adminNotes || "" },
+              metadata: { adminNotes: adminNotes || "", codAmount: collectedAmount, codCurrency: collectedCurrency },
             },
           });
 
@@ -4219,6 +4277,7 @@ adminRouter.post(
             droppingPoint,
             totalPrice,
             trip,
+            getSeatFare,
           };
         },
         { maxWait: 15000, timeout: 30000 }
@@ -4281,7 +4340,7 @@ adminRouter.post(
               seatNumber: seat?.seatNumber || "",
               seatLevel: seat?.level || "LOWER",
               seatType: seat?.type || "SEATER",
-              fare: 0, // Admin offline booking doesn't track individual fares
+              fare: seat ? result.getSeatFare(seat) : 0,
               passenger: {
                 name: p.name,
                 age: p.age,
@@ -4469,17 +4528,29 @@ adminRouter.get(
               time: bookingGroup.droppingPoint.time,
             }
           : null,
-        seats: bookingGroup.bookings.map((booking) => ({
-          seatNumber: booking.seat.seatNumber,
-          seatLevel: booking.seat.level,
-          seatType: booking.seat.type,
-          fare: 0,
-          passenger: {
-            name: booking.passenger?.name || "Passenger",
-            age: booking.passenger?.age || 0,
-            gender: booking.passenger?.gender || "Other",
-          },
-        })),
+        seats: bookingGroup.bookings.map((booking) => {
+          // Calculate fare based on seat type and stop prices
+          const seat = booking.seat;
+          let fare = 0;
+          if (seat.level === 'LOWER' && seat.type === 'SEATER') {
+            fare = Math.abs(bookingGroup.toStop.lowerSeaterPrice - bookingGroup.fromStop.lowerSeaterPrice);
+          } else if (seat.level === 'LOWER' && seat.type === 'SLEEPER') {
+            fare = Math.abs(bookingGroup.toStop.lowerSleeperPrice - bookingGroup.fromStop.lowerSleeperPrice);
+          } else if (seat.level === 'UPPER' && seat.type === 'SLEEPER') {
+            fare = Math.abs(bookingGroup.toStop.upperSleeperPrice - bookingGroup.fromStop.upperSleeperPrice);
+          }
+          return {
+            seatNumber: seat.seatNumber,
+            seatLevel: seat.level,
+            seatType: seat.type,
+            fare,
+            passenger: {
+              name: booking.passenger?.name || "Passenger",
+              age: booking.passenger?.age || 0,
+              gender: booking.passenger?.gender || "Other",
+            },
+          };
+        }),
         pricing: {
           totalPrice: bookingGroup.totalPrice,
           discountAmount: bookingGroup.discountAmount,

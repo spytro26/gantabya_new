@@ -64,7 +64,7 @@ export default function AdminForgotPassword() {
       });
       setSuccess('Password reset successfully!');
       setTimeout(() => {
-        navigate('/admin/signin');
+        navigate('/plus/signin');
       }, 2000);
     } catch (err: any) {
       setError(err.response?.data?.errorMessage || 'Failed to reset password');
@@ -90,7 +90,7 @@ export default function AdminForgotPassword() {
               </div>
             </div>
           </div>
-          <h2 className="text-4xl font-extrabold text-white mb-2">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-2">
             Reset Password
           </h2>
           <p className="text-gray-400 text-lg">Admin Portal</p>
@@ -229,7 +229,7 @@ export default function AdminForgotPassword() {
           <div className="mt-6 text-center space-y-2">
             <div className="text-sm">
               <Link
-                to="/admin/signin"
+                to="/plus/signin"
                 className="font-medium text-gray-400 hover:text-gray-300 transition"
               >
                 ← Back to Sign In

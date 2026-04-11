@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { useDebounce } from '../hooks/useDebounce';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { searchCities, type City } from '../data/cities';
 import { FaMapMarkerAlt } from 'react-icons/fa';
 
@@ -25,34 +24,22 @@ export function CityAutocomplete({
   const [inputValue, setInputValue] = useState(value);
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [isSelecting, setIsSelecting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Debounce the input value to prevent lag during fast typing
-  const debouncedQuery = useDebounce(inputValue, 150);
-
-  // Search cities based on debounced query
+  // Search cities instantly (local search is fast, no debounce needed)
   const suggestions = useMemo(() => {
-    if (!debouncedQuery || debouncedQuery.trim().length === 0) {
+    if (!inputValue || inputValue.trim().length === 0) {
       return [];
     }
-    return searchCities(debouncedQuery, 4, countryFilter);
-  }, [debouncedQuery, countryFilter]);
+    return searchCities(inputValue, 6, countryFilter);
+  }, [inputValue, countryFilter]);
 
   // Sync with external value changes
   useEffect(() => {
     setInputValue(value);
   }, [value]);
-
-  // Show dropdown when we have suggestions
-  useEffect(() => {
-    if (suggestions.length > 0 && inputValue.trim().length > 0) {
-      setIsOpen(true);
-      setHighlightedIndex(-1);
-    } else {
-      setIsOpen(false);
-    }
-  }, [suggestions, inputValue]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -74,31 +61,50 @@ export function CityAutocomplete({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setInputValue(newValue);
-    // Don't call onChange immediately - wait for selection or blur
+    setHighlightedIndex(-1);
+    // Open dropdown if there's input, close if empty
+    if (newValue.trim().length > 0) {
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
+    }
   };
 
-  const handleSelectCity = (city: City) => {
+  const handleSelectCity = useCallback((city: City) => {
+    setIsSelecting(true);
     setInputValue(city.name);
     onChange(city.name);
     setIsOpen(false);
     setHighlightedIndex(-1);
-    inputRef.current?.blur();
-  };
+    // Reset selecting flag after a tick
+    requestAnimationFrame(() => setIsSelecting(false));
+  }, [onChange]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!isOpen && suggestions.length > 0) {
+        setIsOpen(true);
+        setHighlightedIndex(0);
+        return;
+      }
+    }
+
     if (!isOpen || suggestions.length === 0) {
+      if (e.key === 'Enter' && suggestions.length > 0) {
+        e.preventDefault();
+        setIsOpen(true);
+      }
       return;
     }
 
     switch (e.key) {
       case 'ArrowDown':
-        e.preventDefault();
         setHighlightedIndex((prev) =>
           prev < suggestions.length - 1 ? prev + 1 : 0
         );
         break;
       case 'ArrowUp':
-        e.preventDefault();
         setHighlightedIndex((prev) =>
           prev > 0 ? prev - 1 : suggestions.length - 1
         );
@@ -125,13 +131,14 @@ export function CityAutocomplete({
   };
 
   const handleBlur = () => {
-    // Small delay to allow click events on suggestions to fire
-    setTimeout(() => {
+    // Use requestAnimationFrame to let mousedown events fire first
+    requestAnimationFrame(() => {
+      if (isSelecting) return;
       if (inputValue !== value) {
         onChange(inputValue);
       }
       setIsOpen(false);
-    }, 150);
+    });
   };
 
   const handleFocus = () => {

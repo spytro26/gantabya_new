@@ -30,17 +30,17 @@ export function AdminSignin() {
       // Check if admin is verified
       if (response.data.admin && !response.data.admin.adminVerified) {
         // Admin is not verified by super admin yet
-        navigate('/admin/verification-pending');
+        navigate('/plus/verification-pending');
       } else {
         // Admin is verified, go to dashboard
-        navigate('/admin/dashboard');
+        navigate('/plus/dashboard');
       }
     } catch (err: any) {
       // Handle specific error cases
       if (err.response?.data?.needsEmailVerification) {
         setError('Please verify your email first');
         setTimeout(() => {
-          navigate('/admin/verify-email', { state: { email: formData.email } });
+          navigate('/plus/verify-email', { state: { email: formData.email } });
         }, 2000);
       } else {
         setError(err.response?.data?.errorMessage || 'Admin signin failed');
@@ -67,7 +67,7 @@ export function AdminSignin() {
               </div>
             </div>
           </div>
-          <h2 className="text-4xl font-extrabold text-white mb-2">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-2">
             Admin Portal
           </h2>
           <p className="text-gray-400 text-lg">Sign in to your account</p>
@@ -144,7 +144,7 @@ export function AdminSignin() {
           <div className="mt-6 text-center space-y-2">
             <div className="text-sm">
               <Link
-                to="/admin/forgot-password"
+                to="/plus/forgot-password"
                 className="font-medium text-yellow-400 hover:text-yellow-300 transition"
               >
                 Forgot Password?
@@ -153,7 +153,7 @@ export function AdminSignin() {
             <div className="text-sm">
               <span className="text-gray-400">Don't have an account? </span>
               <Link
-                to="/admin/signup"
+                to="/plus/signup"
                 className="font-medium text-yellow-400 hover:text-yellow-300 transition"
               >
                 Sign Up

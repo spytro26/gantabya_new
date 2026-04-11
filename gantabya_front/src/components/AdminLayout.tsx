@@ -83,42 +83,42 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const menuItems: MenuItem[] = [
     {
       name: 'Dashboard',
-      path: '/admin/dashboard',
+      path: '/plus/dashboard',
       icon: <FaChartLine />,
     },
     {
       name: 'Offline Booking',
-      path: '/admin/offline-booking',
+      path: '/plus/offline-booking',
       icon: <FaTicketAlt />,
     },
     {
       name: 'Bus Management',
-      path: '/admin/buses',
+      path: '/plus/buses',
       icon: <FaBus />,
     },
     {
       name: 'Routes & Stops',
-      path: '/admin/routes',
+      path: '/plus/routes',
       icon: <FaRoute />,
     },
     {
       name: 'Trip Management',
-      path: '/admin/trips',
+      path: '/plus/trips',
       icon: <FaCalendarAlt />,
     },
     {
       name: 'Booking Report',
-      path: '/admin/bookings-report',
+      path: '/plus/bookings-report',
       icon: <FaClipboardList />,
     },
     {
       name: 'Offers & Coupons',
-      path: '/admin/offers',
+      path: '/plus/offers',
       icon: <FaTags />,
     },
     {
       name: 'Amenities',
-      path: '/admin/amenities',
+      path: '/plus/amenities',
       icon: <FaWifi />,
     },
   ];
@@ -126,7 +126,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const handleLogout = () => {
     // Clear cookies (token will be cleared by the server)
     document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    navigate('/admin/signin');
+    navigate('/plus/signin');
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -214,7 +214,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           isSidebarOpen && !isMobile ? 'ml-64' : 'ml-0'
         }`}
       >
-        <div className="p-6">{children}</div>
+        <div className="p-3 sm:p-6">{children}</div>
       </main>
     </div>
   );

@@ -43,11 +43,11 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Clear stored tokens on 401
-      const isAdmin = window.location.pathname.startsWith("/admin");
+      const isAdmin = window.location.pathname.startsWith("/plus");
 
       if (isAdmin) {
         localStorage.removeItem("adminToken");
-        window.location.href = "/admin/signin";
+        window.location.href = "/plus/signin";
       } else {
         localStorage.removeItem("authToken");
         window.location.href = "/signin";

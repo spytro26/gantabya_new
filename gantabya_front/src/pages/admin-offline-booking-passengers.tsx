@@ -153,7 +153,7 @@ const AdminOfflineBookingPassengers: React.FC = () => {
                 Download Ticket PDF
               </button>
               <button
-                onClick={() => navigate('/admin/offline-booking', { state: { bookingSuccess: true } })}
+                onClick={() => navigate('/plus/offline-booking', { state: { bookingSuccess: true } })}
                 className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition"
               >
                 Book Another Ticket
@@ -338,7 +338,7 @@ const AdminOfflineBookingPassengers: React.FC = () => {
 
         {/* Submit Button */}
         <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <p className="text-sm text-gray-600">Payment Method</p>
               <p className="font-bold text-lg">Cash on Delivery (COD)</p>
@@ -346,7 +346,7 @@ const AdminOfflineBookingPassengers: React.FC = () => {
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-2"
+              className="w-full sm:w-auto px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               {loading ? (
                 <>

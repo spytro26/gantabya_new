@@ -351,7 +351,7 @@ const SeatLayoutDesigner: React.FC = () => {
 
       setSuccess('Seat layout saved successfully! Users can now book seats on this bus.');
       setTimeout(() => {
-        navigate('/admin/buses');
+        navigate('/plus/buses');
       }, 2000);
     } catch (err: any) {
       setError(err.response?.data?.errorMessage || 'Failed to save layout');
@@ -409,16 +409,16 @@ const SeatLayoutDesigner: React.FC = () => {
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Seat Layout Designer</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Seat Layout Designer</h1>
             <p className="text-gray-600 mt-1">
               {bus.busNumber} - {bus.name}
             </p>
           </div>
           <button
-            onClick={() => navigate('/admin/buses')}
-            className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-800"
+            onClick={() => navigate('/plus/buses')}
+            className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-800 self-start sm:self-auto"
           >
             <FaArrowLeft />
             <span>Back to Buses</span>
@@ -472,7 +472,7 @@ const SeatLayoutDesigner: React.FC = () => {
         </div>
 
         {/* Deck Selector and Stats */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div className="flex items-center space-x-2 bg-white rounded-lg shadow p-1">
             <button
               onClick={() => setActiveLevel('LOWER')}
@@ -498,7 +498,7 @@ const SeatLayoutDesigner: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex items-center space-x-6 text-sm">
+          <div className="flex items-center flex-wrap gap-4 sm:space-x-6 text-sm">
             <div className="flex items-center space-x-2">
               <FaChair className="text-blue-500 text-xl" />
               <span className="text-gray-700">Seaters: {countSeats(lowerDeckGrid)}</span>
@@ -514,7 +514,7 @@ const SeatLayoutDesigner: React.FC = () => {
         </div>
 
         {/* Legend and Sample */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="font-bold text-gray-800 mb-3">Legend:</h3>
             <div className="space-y-2">
@@ -687,7 +687,7 @@ const SeatLayoutDesigner: React.FC = () => {
         {/* Actions */}
         <div className="flex justify-end space-x-4">
           <button
-            onClick={() => navigate('/admin/buses')}
+            onClick={() => navigate('/plus/buses')}
             className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-semibold transition flex items-center space-x-2"
           >
             <FaTimes />

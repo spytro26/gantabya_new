@@ -3,9 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { API_ENDPOINTS, APP_NAME } from '../config';
 import { UserNavbar } from '../components/UserNavbar';
-import DualDatePicker from '../components/DualDatePicker';
 import { CityAutocomplete } from '../components/CityAutocomplete';
-import { getDualDate } from '../utils/nepaliDateConverter';
+import { getTodayIST } from '../utils/currency';
 import {
   FaBus,
   FaSearch,
@@ -15,6 +14,7 @@ import {
   FaShieldAlt,
   FaHeadset,
   FaExchangeAlt,
+  FaCalendarAlt,
 } from 'react-icons/fa';
 
 interface PublicOffer {
@@ -110,9 +110,8 @@ export function UserHome() {
     });
   };
 
-  // Get today's date as min date (allow booking for today if bus hasn't departed)
-  const today = new Date();
-  const minDate = today.toISOString().split('T')[0];
+  // Get today's date in IST (UTC+5:30) as min date
+  const minDate = getTodayIST();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -194,14 +193,17 @@ export function UserHome() {
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                     Journey Date
                   </label>
-                  <DualDatePicker
-                    value={searchForm.date}
-                    onChange={(date) =>
-                      setSearchForm({ ...searchForm, date })
-                    }
-                    minDate={minDate}
-                    placeholder="Select date"
-                  />
+                  <div className="relative">
+                    <FaCalendarAlt className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 z-10 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={searchForm.date}
+                      onChange={(e) => setSearchForm({ ...searchForm, date: e.target.value })}
+                      min={minDate}
+                      required
+                      className="w-full pl-10 pr-3 py-2.5 sm:py-2.5 lg:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 text-sm sm:text-base"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -263,8 +265,8 @@ export function UserHome() {
                 {/* Min/Max limits */}
                 <div className="space-y-1 text-sm opacity-90">
                   <p>
-                    📅 Valid: {getDualDate(offer.validFrom)} –{' '}
-                    {getDualDate(offer.validUntil)}
+                    📅 Valid: {new Date(offer.validFrom).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} –{' '}
+                    {new Date(offer.validUntil).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
                   {offer.minBookingAmount ? (
                     <p>💰 Minimum booking: ₹{offer.minBookingAmount}</p>

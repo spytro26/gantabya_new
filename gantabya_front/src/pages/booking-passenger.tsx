@@ -51,6 +51,8 @@ export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean })
   const [bookingLoading, setBookingLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentGateway>('RAZORPAY');
   const [paymentError, setPaymentError] = useState('');
+  const [codAmount, setCodAmount] = useState<string>('');
+  const [codCurrency, setCodCurrency] = useState<'INR' | 'NPR'>('NPR');
 
   const selectedSeats = state.selectedSeats || [];
   const fromStopId = state.fromStopId;
@@ -67,7 +69,7 @@ export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean })
       !boardingPointId ||
       !droppingPointId
     ) {
-      navigate(isAdmin ? `/admin/offline-booking/${tripId ?? ''}` : `/book/${tripId ?? ''}`, { replace: true });
+      navigate(isAdmin ? `/plus/offline-booking/${tripId ?? ''}` : `/book/${tripId ?? ''}`, { replace: true });
       return;
     }
 
@@ -249,6 +251,12 @@ export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean })
       };
 
       if (isAdmin) {
+        const amount = parseFloat(codAmount);
+        if (!codAmount || isNaN(amount) || amount < 0) {
+          alert('Please enter a valid amount collected from the customer.');
+          setBookingLoading(false);
+          return;
+        }
         await api.post(API_ENDPOINTS.ADMIN_OFFLINE_BOOKING, {
           tripId,
           fromStopId,
@@ -257,10 +265,12 @@ export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean })
           passengers: passengersArray,
           boardingPointId,
           droppingPointId,
+          codAmount: amount,
+          codCurrency,
           adminNotes: 'Booked via admin offline booking'
         });
         alert('Offline booking confirmed successfully!');
-        navigate('/admin/offline-booking');
+        navigate('/plus/offline-booking');
         return;
       }
 
@@ -393,7 +403,7 @@ export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean })
             <h2 className="text-lg font-semibold text-gray-900">Something went wrong</h2>
             <p className="mt-2 text-sm text-gray-600">{error || 'Unable to load passenger details.'}</p>
             <button
-              onClick={() => navigate(isAdmin ? `/admin/offline-booking/${tripId}` : `/book/${tripId}`)}
+              onClick={() => navigate(isAdmin ? `/plus/offline-booking/${tripId}` : `/book/${tripId}`)}
               className="mt-4 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-indigo-700"
             >
               <FaArrowLeft />
@@ -410,7 +420,7 @@ export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean })
   const droppingPoint = busInfo.route.droppingPoints.find((point) => point.id === droppingPointId);
 
   const handleBackToBoarding = () => {
-    navigate(isAdmin ? `/admin/offline-booking/${tripId}/boarding` : `/book/${tripId}/boarding`, {
+    navigate(isAdmin ? `/plus/offline-booking/${tripId}/boarding` : `/book/${tripId}/boarding`, {
       state: {
         selectedSeats,
         fromStopId,
@@ -670,9 +680,40 @@ export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean })
                 </div>
               </div>
             ) : (
-              <div className="text-sm font-semibold text-gray-700 bg-indigo-50 p-3 rounded-xl border border-indigo-100">
-                Payment Method: Cash on Delivery (COD) <br/>
-                <span className="text-xs font-normal text-gray-500">Bookings placed through admin are directly registered and bypass the payment gateway.</span>
+              <div className="space-y-3">
+                <div className="text-sm font-semibold text-gray-700 bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+                  Payment Method: Cash on Delivery (COD) <br/>
+                  <span className="text-xs font-normal text-gray-500">Bookings placed through admin are directly registered and bypass the payment gateway.</span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Amount Collected
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={codAmount}
+                      onChange={(e) => setCodAmount(e.target.value)}
+                      placeholder="Enter amount collected"
+                      className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      Currency
+                    </label>
+                    <select
+                      value={codCurrency}
+                      onChange={(e) => setCodCurrency(e.target.value as 'INR' | 'NPR')}
+                      className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                    >
+                      <option value="NPR">NPR (Nepali Rupee)</option>
+                      <option value="INR">INR (Indian Rupee)</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             )}
 

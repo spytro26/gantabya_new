@@ -214,6 +214,15 @@ export function Signup() {
                 Sign In
               </Link>
             </p>
+            <p className="text-sm text-gray-600">
+              Are you a bus operator?{' '}
+              <Link
+                to="/plus/signup"
+                className="text-yellow-600 hover:text-yellow-700 font-semibold"
+              >
+                Join as Admin
+              </Link>
+            </p>
           </div>
         </div>
       </div>
