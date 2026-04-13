@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { API_ENDPOINTS, APP_NAME } from '../config';
 import { UserNavbar } from '../components/UserNavbar';
+import { Footer } from '../components/Footer';
 import { CityAutocomplete } from '../components/CityAutocomplete';
 import { getTodayIST } from '../utils/currency';
 import {
@@ -96,6 +97,13 @@ export function UserHome() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchForm.startLocation && searchForm.endLocation && searchForm.date) {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        // Save search so user can resume after signing in
+        localStorage.setItem('lastSearch', JSON.stringify(searchForm));
+        navigate('/signin', { state: { message: 'Sign in to search buses and book tickets' } });
+        return;
+      }
       // Save to localStorage before navigating
       localStorage.setItem('lastSearch', JSON.stringify(searchForm));
       navigate('/search', { state: searchForm });
@@ -364,15 +372,7 @@ export function UserHome() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-gray-400">
-            © 2025 {APP_NAME}. All rights reserved.
-          </p>
-          <p className="text-gray-500 mt-2 text-sm">Your Journey, Our Priority</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

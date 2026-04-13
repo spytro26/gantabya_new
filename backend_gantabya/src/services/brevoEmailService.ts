@@ -1,6 +1,47 @@
 import * as brevo from "@getbrevo/brevo";
 import "dotenv/config";
 import { getDualDateForPDF } from "../utils/nepaliDateConverter.js";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load logo as base64 for email embedding
+let logoBase64: string | null = null;
+try {
+  const logoPath = path.join(
+    __dirname,
+    "..",
+    "..",
+    "..",
+    "gantabya_front",
+    "public",
+    "buslogo.jpg"
+  );
+  if (fs.existsSync(logoPath)) {
+    logoBase64 = fs.readFileSync(logoPath).toString("base64");
+  }
+} catch {
+  console.warn("Could not load logo for emails");
+}
+
+function getLogoImgTag(): string {
+  if (logoBase64) {
+    return `<img src="data:image/jpeg;base64,${logoBase64}" alt="Go Gantabya" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;" />`;
+  }
+  return "";
+}
+
+function getEmailHeader(): string {
+  return `
+    <div style="text-align: center; margin-bottom: 20px; padding: 20px 0; background: linear-gradient(135deg, #4338ca, #3b82f6); border-radius: 10px 10px 0 0;">
+      ${getLogoImgTag()}
+      <h2 style="color: #ffffff; margin: 10px 0 0 0; font-size: 22px;">Go Gantabya</h2>
+      <p style="color: #c7d2fe; font-size: 13px; margin: 4px 0 0 0;">Your Journey Partner</p>
+    </div>`;
+}
 
 function getBrevoClient(): brevo.TransactionalEmailsApi {
   const key = process.env.BREVO_API_KEY;
@@ -45,20 +86,22 @@ export async function sendOTPEmail(
       : "Password Reset OTP - Go Gantabya";
 
   const htmlContent = `
-  <div style="font-family: Arial, sans-serif; background: #f9fafc; padding: 20px; border-radius: 10px; text-align: center;">
-    <h2 style="color: #333;">Welcome to <span style="color: #007bff;">Go Gantabya</span> 🚍</h2>
-    <p style="color: #555; font-size: 16px;">${
-      purpose === "signup"
-        ? "Thank you for signing up!"
-        : "You requested a password reset."
-    }</p>
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafc; border-radius: 10px; overflow: hidden;">
+    ${getEmailHeader()}
+    <div style="padding: 20px; text-align: center;">
+      <p style="color: #555; font-size: 16px;">${
+        purpose === "signup"
+          ? "Thank you for signing up!"
+          : "You requested a password reset."
+      }</p>
 
-    <div style="background: #ffffff; border: 1px solid #eee; border-radius: 8px; display: inline-block; padding: 15px 30px; margin-top: 20px;">
-      <h1 style="letter-spacing: 4px; color: #007bff; margin: 0;">${otp}</h1>
+      <div style="background: #ffffff; border: 1px solid #eee; border-radius: 8px; display: inline-block; padding: 15px 30px; margin-top: 20px;">
+        <h1 style="letter-spacing: 4px; color: #4338ca; margin: 0;">${otp}</h1>
+      </div>
+
+      <p style="margin-top: 25px; color: #666;">This OTP will expire in <b>10 minutes</b>.</p>
+      <p style="font-size: 12px; color: #aaa; margin-top: 20px;">If you didn't request this, please ignore this email.</p>
     </div>
-
-    <p style="margin-top: 25px; color: #666;">This OTP will expire in <b>10 minutes</b>.</p>
-    <p style="font-size: 12px; color: #aaa; margin-top: 20px;">If you didn't request this, please ignore this email.</p>
   </div>
   `;
 
@@ -121,14 +164,12 @@ export async function sendBookingConfirmationEmail(
   const tripDateDual = getDualDateForPDF(bookingDetails.tripDate);
 
   const htmlContent = `
-  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafc; padding: 20px; border-radius: 10px;">
-    <div style="text-align: center; margin-bottom: 20px;">
-      <h2 style="color: #007bff; margin: 0;">Go Gantabya 🚍</h2>
-      <p style="color: #666; font-size: 14px;">Your Journey Partner</p>
-    </div>
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafc; border-radius: 10px; overflow: hidden;">
+    ${getEmailHeader()}
 
+    <div style="padding: 20px;">
     <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-      <h3 style="color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px;">Booking Confirmed! 🎉</h3>
+      <h3 style="color: #333; border-bottom: 2px solid #4338ca; padding-bottom: 10px;">Booking Confirmed! 🎉</h3>
       
       <p style="color: #555;">Dear <strong>${userName}</strong>,</p>
       <p style="color: #555;">Your bus ticket has been successfully booked. Please find your ticket attached as a PDF.</p>
@@ -164,6 +205,7 @@ export async function sendBookingConfirmationEmail(
 
     <div style="text-align: center; margin-top: 20px; color: #999; font-size: 11px;">
       <p>This is an automated email. Please do not reply.</p>
+    </div>
     </div>
   </div>
   `;

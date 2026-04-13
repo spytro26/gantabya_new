@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
 import { UserNavbar } from '../components/UserNavbar';
+import { Footer } from '../components/Footer';
 import {
   FaCheckCircle,
   FaInfoCircle,
@@ -192,6 +193,7 @@ export function Notifications() {
           </div>
         )}
       </div>
+      <Footer />
     </div>
   );
 }

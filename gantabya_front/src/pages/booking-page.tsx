@@ -8,6 +8,7 @@ import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
 import { UserNavbar } from '../components/UserNavbar';
 import AdminLayout from '../components/AdminLayout';
+import { Footer } from '../components/Footer';
 import { BusImageCarousel } from '../components/BusImageCarousel';
 import { SeatHoldTimer } from '../components/SeatHoldTimer';
 import { useSeatHold } from '../hooks/useSeatHold';
@@ -25,6 +26,9 @@ import {
   FaPhone,
   FaMale,
   FaFemale,
+  FaCheckCircle,
+  FaDownload,
+  FaPrint,
 } from 'react-icons/fa';
 import { GiSteeringWheel } from 'react-icons/gi';
 import type { BusInfo, Seat } from '../types/booking';
@@ -73,6 +77,7 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
   // Admin-only: Customer contact for sending ticket
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [adminBookingResult, setAdminBookingResult] = useState<{ bookingGroupId: string; emailSent: boolean } | null>(null);
 
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === 'undefined') {
@@ -357,13 +362,12 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
           codCurrency: 'NPR',
         });
 
-        const emailSent = response.data?.emailSent;
-        if (emailSent && customerEmail) {
-          alert(`Booking confirmed! Ticket PDF sent to ${customerEmail}`);
-        } else {
-          alert('Booking confirmed successfully!');
-        }
-        navigate('/plus/offline-booking');
+        setAdminBookingResult({
+          bookingGroupId: response.data.bookingGroupId,
+          emailSent: response.data.emailSent || false,
+        });
+        setBookingLoading(false);
+        setShowBookingModal(false);
         return;
       }
 
@@ -993,6 +997,96 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
           </button>
         </div>
       </div>
+    );
+  }
+
+  // Admin success screen with download/print
+  if (isAdmin && adminBookingResult) {
+    const handleDownloadPdf = async () => {
+      try {
+        const response = await api.get(`/admin/booking/${adminBookingResult.bookingGroupId}/pdf`, {
+          responseType: 'blob',
+        });
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `ticket-${adminBookingResult.bookingGroupId}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Error downloading PDF:', err);
+        alert('Failed to download ticket PDF');
+      }
+    };
+
+    const handlePrintPdf = async () => {
+      try {
+        const response = await api.get(`/admin/booking/${adminBookingResult.bookingGroupId}/pdf`, {
+          responseType: 'blob',
+        });
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const printWindow = window.open(url, '_blank');
+        if (printWindow) {
+          printWindow.onload = () => {
+            printWindow.focus();
+            printWindow.print();
+          };
+        }
+      } catch (err) {
+        console.error('Error printing PDF:', err);
+        alert('Failed to print ticket');
+      }
+    };
+
+    return (
+      <AdminLayout>
+        <div className="max-w-2xl mx-auto mt-8 sm:mt-12 px-4">
+          <div className="bg-green-50 border-2 border-green-500 rounded-2xl p-8 sm:p-12 text-center">
+            <FaCheckCircle className="text-5xl sm:text-6xl text-green-600 mx-auto mb-4" />
+            <h2 className="text-xl sm:text-2xl font-bold text-green-800 mb-2">
+              Booking Successful!
+            </h2>
+            <p className="text-green-700 mb-6">
+              Offline booking created successfully. Payment marked as COD.
+            </p>
+
+            {adminBookingResult.emailSent && (
+              <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 mb-6">
+                <p className="text-blue-700 text-sm">
+                  Ticket PDF has been sent to the customer's email.
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={handleDownloadPdf}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
+              >
+                <FaDownload />
+                Download Ticket
+              </button>
+              <button
+                onClick={handlePrintPdf}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
+              >
+                <FaPrint />
+                Print Ticket
+              </button>
+              <button
+                onClick={() => navigate('/plus/offline-booking')}
+                className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition"
+              >
+                Book Another
+              </button>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
     );
   }
 
@@ -1891,5 +1985,5 @@ export function BookingPage({ isAdmin = false }: { isAdmin?: boolean }) {
     </div>
   );
 
-  return isAdmin ? <AdminLayout>{mainContent}</AdminLayout> : mainContent;
+  return isAdmin ? <AdminLayout>{mainContent}</AdminLayout> : <>{mainContent}<Footer /></>;
 }

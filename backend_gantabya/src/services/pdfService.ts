@@ -164,7 +164,7 @@ export async function generateTicketPDF(
           "..",
           "..",
           "..",
-          "front",
+          "gantabya_front",
           "public",
           "buslogo.jpg"
         );

@@ -2335,6 +2335,145 @@ adminRouter.get(
 );
 
 /**
+ * GET /admin/dashboard/monthly
+ * Get monthly dashboard statistics filtered by month and year
+ * Query params:
+ *   - month: 1-12
+ *   - year: e.g. 2026
+ */
+adminRouter.get(
+  "/dashboard/monthly",
+  authenticateAdmin,
+  async (req: AuthRequest, res): Promise<any> => {
+    const adminId = req.adminId;
+    if (!adminId) {
+      return res.status(401).json({ errorMessage: "Admin not authenticated" });
+    }
+
+    const month = parseInt(req.query.month as string);
+    const year = parseInt(req.query.year as string);
+
+    if (!month || !year || month < 1 || month > 12 || year < 2000) {
+      return res.status(400).json({ errorMessage: "Valid month (1-12) and year required" });
+    }
+
+    try {
+      // Build start and end of the selected month (IST)
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 1);
+
+      // Trips in this month
+      const totalTrips = await prisma.trip.count({
+        where: {
+          bus: { adminId },
+          tripDate: { gte: startDate, lt: endDate },
+        },
+      });
+
+      // Bookings created in this month
+      const totalBookings = await prisma.bookingGroup.count({
+        where: {
+          trip: { bus: { adminId } },
+          createdAt: { gte: startDate, lt: endDate },
+        },
+      });
+
+      const confirmedBookings = await prisma.bookingGroup.count({
+        where: {
+          trip: { bus: { adminId } },
+          status: "CONFIRMED",
+          createdAt: { gte: startDate, lt: endDate },
+        },
+      });
+
+      // Revenue breakdown for this month
+      const confirmedPayments = await prisma.payment.findMany({
+        where: {
+          bookingGroup: {
+            trip: { bus: { adminId } },
+            status: "CONFIRMED",
+            createdAt: { gte: startDate, lt: endDate },
+          },
+          status: "SUCCESS",
+        },
+        select: {
+          method: true,
+          chargedAmount: true,
+          chargedCurrency: true,
+        },
+      });
+
+      let codRevenueNPR = 0;
+      let codRevenueINR = 0;
+      let onlineRevenue = 0;
+
+      for (const payment of confirmedPayments) {
+        if (payment.method === "COD") {
+          if (payment.chargedCurrency === "INR") {
+            codRevenueINR += payment.chargedAmount;
+          } else {
+            codRevenueNPR += payment.chargedAmount;
+          }
+        } else {
+          onlineRevenue += payment.chargedAmount;
+        }
+      }
+
+      const totalRevenue = codRevenueNPR + codRevenueINR + onlineRevenue;
+
+      // Recent bookings this month
+      const recentBookings = await prisma.bookingGroup.findMany({
+        where: {
+          trip: { bus: { adminId } },
+          createdAt: { gte: startDate, lt: endDate },
+        },
+        include: {
+          user: { select: { name: true, email: true } },
+          trip: {
+            select: {
+              tripDate: true,
+              bus: { select: { busNumber: true, name: true } },
+            },
+          },
+          fromStop: { select: { name: true } },
+          toStop: { select: { name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      });
+
+      return res.status(200).json({
+        month,
+        year,
+        overview: {
+          totalTrips,
+          totalBookings,
+          confirmedBookings,
+          totalRevenue,
+          codRevenueNPR,
+          codRevenueINR,
+          onlineRevenue,
+        },
+        recentBookings: recentBookings.map((booking) => ({
+          bookingGroupId: booking.id,
+          passengerName: booking.user.name,
+          passengerEmail: booking.user.email,
+          bus: `${booking.trip.bus.busNumber} - ${booking.trip.bus.name}`,
+          route: `${booking.fromStop.name} → ${booking.toStop.name}`,
+          tripDate: booking.trip.tripDate,
+          amount: booking.totalPrice,
+          status: booking.status,
+          bookedAt: booking.createdAt,
+        })),
+      });
+    } catch (e) {
+      console.error("Error fetching monthly dashboard data:", e);
+      return res.status(500).json({ errorMessage: "Failed to fetch monthly dashboard data" });
+    }
+  }
+);
+
+/**
  * GET /admin/bookings/date-report
  * Get date-wise booking report with detailed statistics
  * Query params:

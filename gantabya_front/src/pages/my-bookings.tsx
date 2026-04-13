@@ -4,6 +4,7 @@ import api from '../lib/api';
 // API_BASE_URL
 import { API_ENDPOINTS } from '../config';
 import { UserNavbar } from '../components/UserNavbar';
+import { Footer } from '../components/Footer';
 import { getDualDateDisplay } from '../utils/nepaliDateConverter';
 import {
   FaMapMarkerAlt,
@@ -467,6 +468,7 @@ export function MyBookings() {
           </div>
         )}
       </div>
+      <Footer />
     </div>
   );
 }

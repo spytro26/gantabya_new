@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
 import { UserNavbar } from '../components/UserNavbar';
+import { Footer } from '../components/Footer';
 import { getDualDate } from '../utils/nepaliDateConverter';
 import {
   FaEnvelope,
@@ -285,6 +286,7 @@ export function UserProfile() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

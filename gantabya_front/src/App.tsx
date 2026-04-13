@@ -35,6 +35,7 @@ import SuperAdminSignin from './pages/superadmin-signin';
 import SuperAdminDashboard from './pages/superadmin-dashboard';
 import SuperAdminAdminProfile from './pages/superadmin-admin-profile';
 import SuperAdminOffers from './pages/superadmin-offers';
+import { TermsAndConditions } from './pages/terms-and-conditions';
 
 function App() {
   return (
@@ -57,6 +58,7 @@ function App() {
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/payment/esewa/success/:paymentId" element={<EsewaSuccessPage />} />
         <Route path="/payment/esewa/failure/:paymentId" element={<EsewaFailurePage />} />
+        <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
         
         {/* Admin Routes */}
         <Route path="/plus/signup" element={<AdminSignup />} />

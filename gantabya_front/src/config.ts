@@ -12,7 +12,7 @@
 //    4. On EC2:  git pull && (rebuild / restart)
 // ============================================================
 
-const IS_PRODUCTION = true; // <-- CHANGE THIS: true = production, false = localhost
+const IS_PRODUCTION = false; // <-- CHANGE THIS: true = production, false = localhost
 
 export const BACKEND_URL = IS_PRODUCTION
   ? "https://api.gogantabya.com"
@@ -51,6 +51,7 @@ export const API_ENDPOINTS = {
   ADMIN_SIGNUP: "/admin/signup",
   ADMIN_SIGNIN: "/admin/signin",
   ADMIN_DASHBOARD: "/admin/dashboard",
+  ADMIN_DASHBOARD_MONTHLY: "/admin/dashboard/monthly",
   ADMIN_SERVICE_NAME: "/admin/profile/service-name",
 
   // Admin Bus Management

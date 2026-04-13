@@ -9,6 +9,7 @@ import {
   FaCalendarPlus,
   FaTags,
   FaChartLine,
+  FaCalendarAlt,
 } from 'react-icons/fa';
 import AdminLayout from '../components/AdminLayout';
 import api from '../lib/api';
@@ -50,6 +51,36 @@ interface DashboardData {
   }>;
 }
 
+interface MonthlyData {
+  month: number;
+  year: number;
+  overview: {
+    totalTrips: number;
+    totalBookings: number;
+    confirmedBookings: number;
+    totalRevenue: number;
+    codRevenueNPR: number;
+    codRevenueINR: number;
+    onlineRevenue: number;
+  };
+  recentBookings: Array<{
+    bookingGroupId: string;
+    passengerName: string;
+    passengerEmail: string;
+    bus: string;
+    route: string;
+    tripDate: string;
+    amount: number;
+    status: string;
+    bookedAt: string;
+  }>;
+}
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
 const AdminDashboard: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,9 +91,31 @@ const AdminDashboard: React.FC = () => {
   const [serviceNameMessage, setServiceNameMessage] = useState('');
   const [serviceNameError, setServiceNameError] = useState('');
 
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [monthlyData, setMonthlyData] = useState<MonthlyData | null>(null);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
+  const [monthlyError, setMonthlyError] = useState('');
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  const fetchMonthlyData = async () => {
+    setMonthlyLoading(true);
+    setMonthlyError('');
+    try {
+      const response = await api.get(API_ENDPOINTS.ADMIN_DASHBOARD_MONTHLY, {
+        params: { month: selectedMonth, year: selectedYear },
+      });
+      setMonthlyData(response.data);
+    } catch (err: any) {
+      setMonthlyError(err.response?.data?.errorMessage || 'Failed to load monthly data');
+    } finally {
+      setMonthlyLoading(false);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -324,6 +377,129 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Monthly Dashboard */}
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div className="flex items-center gap-2">
+              <FaCalendarAlt className="text-indigo-600 text-xl" />
+              <h2 className="text-xl font-bold text-gray-800">Monthly Stats</h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+              >
+                {MONTH_NAMES.map((name, i) => (
+                  <option key={i + 1} value={i + 1}>{name}</option>
+                ))}
+              </select>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+              >
+                {Array.from({ length: 5 }, (_, i) => now.getFullYear() - i).map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+              <button
+                onClick={fetchMonthlyData}
+                disabled={monthlyLoading}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition disabled:opacity-60"
+              >
+                {monthlyLoading ? 'Loading...' : 'Load'}
+              </button>
+            </div>
+          </div>
+
+          {monthlyError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg mb-4">
+              {monthlyError}
+            </div>
+          )}
+
+          {!monthlyData && !monthlyLoading && !monthlyError && (
+            <p className="text-gray-400 text-sm text-center py-6">
+              Select a month and year, then click Load to view stats.
+            </p>
+          )}
+
+          {monthlyData && (
+            <>
+              <p className="text-sm text-gray-500 mb-4">
+                Showing stats for <span className="font-semibold text-gray-700">{MONTH_NAMES[monthlyData.month - 1]} {monthlyData.year}</span>
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+                <div className="bg-indigo-50 rounded-lg p-4 text-center">
+                  <p className="text-xs text-indigo-500 font-medium uppercase mb-1">Trips</p>
+                  <p className="text-2xl font-bold text-indigo-700">{monthlyData.overview.totalTrips}</p>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-4 text-center">
+                  <p className="text-xs text-purple-500 font-medium uppercase mb-1">Bookings</p>
+                  <p className="text-2xl font-bold text-purple-700">{monthlyData.overview.confirmedBookings}</p>
+                  <p className="text-xs text-purple-400">of {monthlyData.overview.totalBookings} total</p>
+                </div>
+                <div className="bg-orange-50 rounded-lg p-4 text-center">
+                  <p className="text-xs text-orange-500 font-medium uppercase mb-1">COD (NPR)</p>
+                  <p className="text-xl font-bold text-orange-700">NPR {monthlyData.overview.codRevenueNPR.toLocaleString('en-IN')}</p>
+                </div>
+                <div className="bg-green-50 rounded-lg p-4 text-center">
+                  <p className="text-xs text-green-500 font-medium uppercase mb-1">Online Revenue</p>
+                  <p className="text-xl font-bold text-green-700">NPR {monthlyData.overview.onlineRevenue.toLocaleString('en-IN')}</p>
+                </div>
+              </div>
+
+              {monthlyData.recentBookings.length > 0 && (
+                <>
+                  <h3 className="font-semibold text-gray-700 mb-3">Bookings This Month</h3>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Passenger</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Bus</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Route</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {monthlyData.recentBookings.map((booking) => (
+                          <tr key={booking.bookingGroupId} className="hover:bg-gray-50">
+                            <td className="px-4 py-2">
+                              <p className="font-medium text-gray-800">{booking.passengerName}</p>
+                              <p className="text-xs text-gray-500">{booking.passengerEmail}</p>
+                            </td>
+                            <td className="px-4 py-2 text-gray-700">{booking.bus}</td>
+                            <td className="px-4 py-2 text-gray-700">{booking.route}</td>
+                            <td className="px-4 py-2 text-gray-700">
+                              {new Date(booking.tripDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </td>
+                            <td className="px-4 py-2 font-semibold text-gray-700">
+                              ₹{booking.amount.toLocaleString('en-IN')}
+                            </td>
+                            <td className="px-4 py-2">
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${booking.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                {booking.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              {monthlyData.recentBookings.length === 0 && (
+                <p className="text-gray-400 text-sm text-center py-4">No bookings found for this month.</p>
+              )}
+            </>
+          )}
         </div>
 
         {/* Quick Actions */}

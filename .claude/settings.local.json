@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(ls -la C:/Users/2654a/Documents/harsh/gantabya_new/backend_gantabya/.env*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(echo \"EXIT_CODE=$?\")"
     ]
   }
 }

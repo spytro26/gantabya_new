@@ -42,15 +42,21 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      // Clear stored tokens on 401
       const isAdmin = window.location.pathname.startsWith("/plus");
+      const hadToken = isAdmin
+        ? !!localStorage.getItem("adminToken")
+        : !!localStorage.getItem("authToken");
 
-      if (isAdmin) {
-        localStorage.removeItem("adminToken");
-        window.location.href = "/plus/signin";
-      } else {
-        localStorage.removeItem("authToken");
-        window.location.href = "/signin";
+      // Only redirect if user had a token (expired/invalid session).
+      // If no token existed, let the component handle the unauthenticated state.
+      if (hadToken) {
+        if (isAdmin) {
+          localStorage.removeItem("adminToken");
+          window.location.href = "/plus/signin";
+        } else {
+          localStorage.removeItem("authToken");
+          window.location.href = "/signin";
+        }
       }
     }
     return Promise.reject(error);

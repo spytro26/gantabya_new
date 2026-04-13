@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import { API_ENDPOINTS, APP_NAME } from '../config';
 import busLogo from '../assets/buslogo.jpg';
@@ -7,6 +7,8 @@ import { FaEnvelope, FaLock } from 'react-icons/fa';
 
 export function Signin() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectMessage = (location.state as any)?.message || '';
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -50,6 +52,13 @@ export function Signin() {
           <h1 className="text-4xl font-bold text-indigo-900">{APP_NAME}</h1>
           <p className="text-gray-600 mt-2">Welcome back!</p>
         </div>
+
+        {/* Redirect message */}
+        {redirectMessage && (
+          <div className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-4 py-3 rounded-lg mb-4 text-center text-sm">
+            {redirectMessage}
+          </div>
+        )}
 
         {/* Signin Card */}
         <div className="bg-white rounded-2xl shadow-xl p-8">

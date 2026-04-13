@@ -17,6 +17,7 @@ import {
 import buslogo from '../assets/buslogo.jpg';
 import { APP_NAME, API_ENDPOINTS } from '../config';
 import api from '../lib/api';
+import { Footer } from './Footer';
 
 interface AdminLayoutProps {
   children?: React.ReactNode;
@@ -179,8 +180,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } ${isMobile ? 'w-64' : 'w-64'}`}
       >
-        <div className="p-4">
-          <nav className="space-y-2">
+        <div className="p-4 flex flex-col h-[calc(100vh-4rem)]">
+          <nav className="space-y-2 flex-1">
             {menuItems.map((item) => (
               <Link
                 key={item.path}
@@ -210,11 +211,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 
       {/* Main Content */}
       <main
-        className={`pt-20 transition-all duration-300 ${
+        className={`pt-20 transition-all duration-300 flex flex-col min-h-screen ${
           isSidebarOpen && !isMobile ? 'ml-64' : 'ml-0'
         }`}
       >
-        <div className="p-3 sm:p-6">{children}</div>
+        <div className="p-3 sm:p-6 flex-1">{children}</div>
+        <Footer />
       </main>
     </div>
   );

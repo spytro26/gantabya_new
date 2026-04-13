@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
 import { UserNavbar } from '../components/UserNavbar';
+import { Footer } from '../components/Footer';
 import { BusImageCarousel } from '../components/BusImageCarousel';
 import { formatDualCurrency } from '../utils/currency';
 import { getDualDate } from '../utils/nepaliDateConverter';
@@ -64,6 +65,7 @@ export function SearchResults() {
   });
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
     if (!searchParams) {
@@ -161,6 +163,11 @@ export function SearchResults() {
   };
 
   const handleBookNow = (bus: Bus) => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      setShowAuthModal(true);
+      return;
+    }
     navigate(`/book/${bus.tripId}`, {
       state: {
         searchParams,
@@ -507,6 +514,42 @@ export function SearchResults() {
           </div>
         </div>
       )}
+
+      {/* Auth Required Modal */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center">
+            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaChair className="text-3xl text-indigo-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Sign in to book a seat</h2>
+            <p className="text-gray-500 text-sm mb-6">
+              Create an account or sign in to view seats and complete your booking.
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => navigate('/signup')}
+                className="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition"
+              >
+                Sign Up — it's free
+              </button>
+              <button
+                onClick={() => navigate('/signin')}
+                className="w-full py-3 border-2 border-indigo-600 text-indigo-600 rounded-lg font-semibold hover:bg-indigo-50 transition"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => setShowAuthModal(false)}
+                className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <Footer />
     </div>
   );
 }

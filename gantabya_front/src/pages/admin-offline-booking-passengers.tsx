@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout';
 import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
-import { FaArrowLeft, FaUser, FaCheckCircle, FaDownload, FaEnvelope, FaPhone, FaWhatsapp } from 'react-icons/fa';
+import { FaArrowLeft, FaUser, FaCheckCircle, FaDownload, FaPrint, FaEnvelope, FaPhone, FaWhatsapp } from 'react-icons/fa';
 
 interface Passenger {
   seatId: string;
@@ -122,6 +122,27 @@ const AdminOfflineBookingPassengers: React.FC = () => {
     }
   };
 
+  const handlePrintPdf = async () => {
+    if (!bookingGroupId) return;
+    try {
+      const response = await api.get(`/admin/booking/${bookingGroupId}/pdf`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const printWindow = window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.focus();
+          printWindow.print();
+        };
+      }
+    } catch (err) {
+      console.error('Error printing PDF:', err);
+      setError('Failed to print ticket');
+    }
+  };
+
   if (success) {
     return (
       <AdminLayout>
@@ -151,6 +172,13 @@ const AdminOfflineBookingPassengers: React.FC = () => {
               >
                 <FaDownload />
                 Download Ticket PDF
+              </button>
+              <button
+                onClick={handlePrintPdf}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
+              >
+                <FaPrint />
+                Print Ticket
               </button>
               <button
                 onClick={() => navigate('/plus/offline-booking', { state: { bookingSuccess: true } })}

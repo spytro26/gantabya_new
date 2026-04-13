@@ -4,6 +4,7 @@ import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
 import { UserNavbar } from '../components/UserNavbar';
 import AdminLayout from '../components/AdminLayout';
+import { Footer } from '../components/Footer';
 import { roundToTwo, formatAmount, convertToINR, formatDualCurrency } from '../utils/currency';
 import {
   FaArrowLeft,
@@ -13,6 +14,9 @@ import {
   FaClock,
   FaCreditCard,
   FaMobileAlt,
+  FaCheckCircle,
+  FaDownload,
+  FaPrint,
 } from 'react-icons/fa';
 import type { BusInfo, Seat } from '../types/booking';
 import { loadRazorpayScript, submitEsewaForm } from '../utils/payment';
@@ -51,8 +55,7 @@ export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean })
   const [bookingLoading, setBookingLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentGateway>('RAZORPAY');
   const [paymentError, setPaymentError] = useState('');
-  const [codAmount, setCodAmount] = useState<string>('');
-  const [codCurrency, setCodCurrency] = useState<'INR' | 'NPR'>('NPR');
+  const [adminBookingResult, setAdminBookingResult] = useState<{ bookingGroupId: string; emailSent: boolean } | null>(null);
 
   const selectedSeats = state.selectedSeats || [];
   const fromStopId = state.fromStopId;
@@ -251,13 +254,7 @@ export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean })
       };
 
       if (isAdmin) {
-        const amount = parseFloat(codAmount);
-        if (!codAmount || isNaN(amount) || amount < 0) {
-          alert('Please enter a valid amount collected from the customer.');
-          setBookingLoading(false);
-          return;
-        }
-        await api.post(API_ENDPOINTS.ADMIN_OFFLINE_BOOKING, {
+        const response = await api.post(API_ENDPOINTS.ADMIN_OFFLINE_BOOKING, {
           tripId,
           fromStopId,
           toStopId,
@@ -265,12 +262,15 @@ export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean })
           passengers: passengersArray,
           boardingPointId,
           droppingPointId,
-          codAmount: amount,
-          codCurrency,
+          codAmount: totalAmount,
+          codCurrency: 'NPR',
           adminNotes: 'Booked via admin offline booking'
         });
-        alert('Offline booking confirmed successfully!');
-        navigate('/plus/offline-booking');
+        setAdminBookingResult({
+          bookingGroupId: response.data.bookingGroupId,
+          emailSent: response.data.emailSent || false,
+        });
+        setBookingLoading(false);
         return;
       }
 
@@ -378,6 +378,96 @@ export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean })
       setBookingLoading(false);
     }
   };
+
+  // Admin success screen with download/print
+  if (isAdmin && adminBookingResult) {
+    const handleDownloadPdf = async () => {
+      try {
+        const response = await api.get(`/admin/booking/${adminBookingResult.bookingGroupId}/pdf`, {
+          responseType: 'blob',
+        });
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `ticket-${adminBookingResult.bookingGroupId}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Error downloading PDF:', err);
+        alert('Failed to download ticket PDF');
+      }
+    };
+
+    const handlePrintPdf = async () => {
+      try {
+        const response = await api.get(`/admin/booking/${adminBookingResult.bookingGroupId}/pdf`, {
+          responseType: 'blob',
+        });
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const printWindow = window.open(url, '_blank');
+        if (printWindow) {
+          printWindow.onload = () => {
+            printWindow.focus();
+            printWindow.print();
+          };
+        }
+      } catch (err) {
+        console.error('Error printing PDF:', err);
+        alert('Failed to print ticket');
+      }
+    };
+
+    const successContent = (
+      <div className="max-w-2xl mx-auto mt-8 sm:mt-12 px-4">
+            <div className="bg-green-50 border-2 border-green-500 rounded-2xl p-8 sm:p-12 text-center">
+              <FaCheckCircle className="text-5xl sm:text-6xl text-green-600 mx-auto mb-4" />
+              <h2 className="text-xl sm:text-2xl font-bold text-green-800 mb-2">
+                Booking Successful!
+              </h2>
+              <p className="text-green-700 mb-6">
+                Offline booking created successfully. Payment marked as COD.
+              </p>
+
+              {adminBookingResult.emailSent && (
+                <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 mb-6">
+                  <p className="text-blue-700 text-sm">
+                    Ticket PDF has been sent to the customer's email.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  onClick={handleDownloadPdf}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
+                >
+                  <FaDownload />
+                  Download Ticket
+                </button>
+                <button
+                  onClick={handlePrintPdf}
+                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
+                >
+                  <FaPrint />
+                  Print Ticket
+                </button>
+                <button
+                  onClick={() => navigate('/plus/offline-booking')}
+                  className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition"
+                >
+                  Book Another
+                </button>
+              </div>
+            </div>
+      </div>
+    );
+
+    return <AdminLayout>{successContent}</AdminLayout>;
+  }
 
   if (loading) {
     const loadingContent = (
@@ -685,34 +775,9 @@ export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean })
                   Payment Method: Cash on Delivery (COD) <br/>
                   <span className="text-xs font-normal text-gray-500">Bookings placed through admin are directly registered and bypass the payment gateway.</span>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Amount Collected
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={codAmount}
-                      onChange={(e) => setCodAmount(e.target.value)}
-                      placeholder="Enter amount collected"
-                      className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Currency
-                    </label>
-                    <select
-                      value={codCurrency}
-                      onChange={(e) => setCodCurrency(e.target.value as 'INR' | 'NPR')}
-                      className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                    >
-                      <option value="NPR">NPR (Nepali Rupee)</option>
-                      <option value="INR">INR (Indian Rupee)</option>
-                    </select>
-                  </div>
+                <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Amount to Collect</span>
+                  <div className="text-lg font-bold text-indigo-600 mt-1">{formatDualCurrency(totalAmount)}</div>
                 </div>
               </div>
             )}
@@ -743,5 +808,5 @@ export function BookingPassengerPage({ isAdmin = false }: { isAdmin?: boolean })
     </div>
   );
 
-  return isAdmin ? <AdminLayout>{mainContent}</AdminLayout> : mainContent;
+  return isAdmin ? <AdminLayout>{mainContent}</AdminLayout> : <>{mainContent}<Footer /></>;
 }

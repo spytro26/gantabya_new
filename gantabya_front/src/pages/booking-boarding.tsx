@@ -4,6 +4,7 @@ import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
 import { UserNavbar } from '../components/UserNavbar';
 import AdminLayout from '../components/AdminLayout';
+import { Footer } from '../components/Footer';
 import { roundToTwo, formatAmount } from '../utils/currency';
 import {
   FaArrowLeft,
@@ -407,5 +408,5 @@ export function BookingBoardingPage({ isAdmin = false }: { isAdmin?: boolean }) 
     </div>
   );
 
-  return isAdmin ? <AdminLayout>{mainContent}</AdminLayout> : mainContent;
+  return isAdmin ? <AdminLayout>{mainContent}</AdminLayout> : <>{mainContent}<Footer /></>;
 }

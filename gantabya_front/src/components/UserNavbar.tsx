@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FaBell, FaTicketAlt, FaUser, FaBars, FaTimes, FaHome } from 'react-icons/fa';
 import busLogo from '../assets/buslogo.jpg';
 import { APP_NAME } from '../config';
@@ -12,13 +12,22 @@ interface UserNavbarProps {
 
 export function UserNavbar({ user, unreadCount = 0, currentPage = 'home' }: UserNavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const isLoggedIn = !!localStorage.getItem('authToken');
 
   const navLinks = [
-    { to: '/home', label: 'Home', icon: FaHome },
-    { to: '/my-bookings', label: 'My Bookings', icon: FaTicketAlt },
-    { to: '/notifications', label: 'Notifications', icon: FaBell, badge: unreadCount },
-    { to: '/profile', label: 'Profile', icon: FaUser, userName: user?.name },
+    { to: '/home', label: 'Home', icon: FaHome, requiresAuth: false },
+    { to: '/my-bookings', label: 'My Bookings', icon: FaTicketAlt, requiresAuth: true },
+    { to: '/notifications', label: 'Notifications', icon: FaBell, badge: unreadCount, requiresAuth: true },
+    { to: '/profile', label: 'Profile', icon: FaUser, userName: user?.name, requiresAuth: true },
   ];
+
+  const handleNavClick = (e: React.MouseEvent, link: typeof navLinks[0]) => {
+    if (link.requiresAuth && !isLoggedIn) {
+      e.preventDefault();
+      navigate('/signin', { state: { message: `Sign in to view ${link.label.toLowerCase()}` } });
+    }
+  };
 
   return (
     <nav className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-blue-600 shadow-lg sticky top-0 z-50">
@@ -51,31 +60,60 @@ export function UserNavbar({ user, unreadCount = 0, currentPage = 'home' }: User
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-1 lg:space-x-2">
-            {navLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`
-                  relative px-2 lg:px-4 py-2 rounded-lg font-medium transition-all duration-200
-                  flex items-center gap-1 lg:gap-2 text-sm lg:text-base
-                  ${
-                    currentPage === link.to.slice(1)
-                      ? 'bg-white text-indigo-700 shadow-md'
-                      : 'text-white hover:bg-white/20 hover:shadow-md'
-                  }
-                `}
-              >
-                <link.icon className="text-base lg:text-lg" />
-                <span className="hidden lg:inline whitespace-nowrap">
-                  {link.userName ? link.userName : link.label}
-                </span>
-                {link.badge && link.badge > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
-                    {link.badge > 9 ? '9+' : link.badge}
+            {isLoggedIn ? (
+              navLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  onClick={(e) => handleNavClick(e, link)}
+                  className={`
+                    relative px-2 lg:px-4 py-2 rounded-lg font-medium transition-all duration-200
+                    flex items-center gap-1 lg:gap-2 text-sm lg:text-base
+                    ${
+                      currentPage === link.to.slice(1)
+                        ? 'bg-white text-indigo-700 shadow-md'
+                        : 'text-white hover:bg-white/20 hover:shadow-md'
+                    }
+                  `}
+                >
+                  <link.icon className="text-base lg:text-lg" />
+                  <span className="hidden lg:inline whitespace-nowrap">
+                    {link.userName ? link.userName : link.label}
                   </span>
-                )}
-              </Link>
-            ))}
+                  {link.badge && link.badge > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                      {link.badge > 9 ? '9+' : link.badge}
+                    </span>
+                  )}
+                </Link>
+              ))
+            ) : (
+              <>
+                <Link
+                  to="/home"
+                  className={`
+                    relative px-2 lg:px-4 py-2 rounded-lg font-medium transition-all duration-200
+                    flex items-center gap-1 lg:gap-2 text-sm lg:text-base
+                    ${currentPage === 'home' ? 'bg-white text-indigo-700 shadow-md' : 'text-white hover:bg-white/20 hover:shadow-md'}
+                  `}
+                >
+                  <FaHome className="text-base lg:text-lg" />
+                  <span className="hidden lg:inline whitespace-nowrap">Home</span>
+                </Link>
+                <Link
+                  to="/signin"
+                  className="px-4 lg:px-6 py-2 rounded-lg font-semibold transition-all duration-200 text-sm lg:text-base bg-white text-indigo-700 hover:bg-indigo-50 shadow-md"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/signup"
+                  className="px-4 lg:px-6 py-2 rounded-lg font-semibold transition-all duration-200 text-sm lg:text-base border-2 border-white text-white hover:bg-white/20"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -92,30 +130,61 @@ export function UserNavbar({ user, unreadCount = 0, currentPage = 'home' }: User
         {mobileMenuOpen && (
           <div className="md:hidden pb-3 border-t border-white/20">
             <div className="flex flex-col space-y-1.5 mt-2">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`
-                    relative px-3 py-2.5 rounded-lg font-medium transition-all duration-200
-                    flex items-center gap-2.5 text-sm
-                    ${
-                      currentPage === link.to.slice(1)
-                        ? 'bg-white text-indigo-700 shadow-md'
-                        : 'text-white hover:bg-white/20'
-                    }
-                  `}
-                >
-                  <link.icon className="text-base flex-shrink-0" />
-                  <span className="flex-1 truncate">{link.userName ? link.userName : link.label}</span>
-                  {link.badge && link.badge > 0 && (
-                    <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 flex-shrink-0">
-                      {link.badge > 9 ? '9+' : link.badge}
-                    </span>
-                  )}
-                </Link>
-              ))}
+              {isLoggedIn ? (
+                navLinks.map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    onClick={(e) => { handleNavClick(e, link); setMobileMenuOpen(false); }}
+                    className={`
+                      relative px-3 py-2.5 rounded-lg font-medium transition-all duration-200
+                      flex items-center gap-2.5 text-sm
+                      ${
+                        currentPage === link.to.slice(1)
+                          ? 'bg-white text-indigo-700 shadow-md'
+                          : 'text-white hover:bg-white/20'
+                      }
+                    `}
+                  >
+                    <link.icon className="text-base flex-shrink-0" />
+                    <span className="flex-1 truncate">{link.userName ? link.userName : link.label}</span>
+                    {link.badge && link.badge > 0 && (
+                      <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 flex-shrink-0">
+                        {link.badge > 9 ? '9+' : link.badge}
+                      </span>
+                    )}
+                  </Link>
+                ))
+              ) : (
+                <>
+                  <Link
+                    to="/home"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`px-3 py-2.5 rounded-lg font-medium transition-all duration-200 flex items-center gap-2.5 text-sm ${
+                      currentPage === 'home' ? 'bg-white text-indigo-700 shadow-md' : 'text-white hover:bg-white/20'
+                    }`}
+                  >
+                    <FaHome className="text-base flex-shrink-0" />
+                    <span className="flex-1 truncate">Home</span>
+                  </Link>
+                  <Link
+                    to="/signin"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-3 py-2.5 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2.5 text-sm bg-white text-indigo-700 shadow-md"
+                  >
+                    <FaUser className="text-base flex-shrink-0" />
+                    <span className="flex-1 truncate">Sign In</span>
+                  </Link>
+                  <Link
+                    to="/signup"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-3 py-2.5 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2.5 text-sm text-white border border-white/40 hover:bg-white/20"
+                  >
+                    <FaUser className="text-base flex-shrink-0" />
+                    <span className="flex-1 truncate">Sign Up</span>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}
