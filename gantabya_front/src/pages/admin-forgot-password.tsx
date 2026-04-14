@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
-import busLogo from '../assets/buslogo.jpg';
+const busLogo = '/pluslogo.jpg';
 import { FaEnvelope, FaKey, FaLock, FaShieldAlt } from 'react-icons/fa';
 
 export default function AdminForgotPassword() {

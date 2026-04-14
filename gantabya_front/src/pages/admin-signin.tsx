@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
-import busLogo from '../assets/buslogo.jpg';
+const busLogo = '/pluslogo.jpg';
 import { FaEnvelope, FaLock, FaShieldAlt } from 'react-icons/fa';
 
 export function AdminSignin() {

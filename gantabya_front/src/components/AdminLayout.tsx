@@ -14,7 +14,7 @@ import {
   FaClipboardList,
   FaTicketAlt,
 } from 'react-icons/fa';
-import buslogo from '../assets/buslogo.jpg';
+const buslogo = '/pluslogo.jpg';
 import { APP_NAME, API_ENDPOINTS } from '../config';
 import api from '../lib/api';
 import { Footer } from './Footer';

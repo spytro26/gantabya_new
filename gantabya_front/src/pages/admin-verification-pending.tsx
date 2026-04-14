@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import busLogo from "../assets/buslogo.jpg";
+const busLogo = '/pluslogo.jpg';
 import { API_BASE_URL } from "../config";
 
 export default function AdminVerificationPending() {

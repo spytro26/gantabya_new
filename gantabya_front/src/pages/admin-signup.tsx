@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { FaUser, FaEnvelope, FaLock, FaShieldAlt } from 'react-icons/fa';
 import api from '../lib/api';
 import { API_ENDPOINTS } from '../config';
-import buslogo from '../assets/buslogo.jpg';
+const buslogo = '/pluslogo.jpg';
 
 const AdminSignup: React.FC = () => {
   const navigate = useNavigate();
